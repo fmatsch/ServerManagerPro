@@ -169,6 +169,9 @@ public sealed class Snapshot
     public List<SessionRow> Sessions { get; set; } = new();
     public List<EventRow> Events { get; set; } = new();
     public List<DiskRow> Disks { get; set; } = new();
+    public List<ConnRow> Connections { get; set; } = new();
+    public AdInfo? Ad { get; set; }
+    public DhcpInfo? Dhcp { get; set; }
     public int RdpActive { get; set; }
     public int RdpTotal { get; set; }
     public int SmbSessions { get; set; }

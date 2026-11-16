@@ -6,6 +6,9 @@ Der **Task-Manager für Server**: CPU, Speicher, Prozesse und Dienste – plus d
 - Welche **Datenbanken** laufen, und wie ausgelastet ist der Datenbankserver (CPU, RAM, Verbindungen, bei SQL Server Batch-Requests/s, Seitenlebensdauer, Blockierungen)?
 - Läuft gerade ein **Backup**? Wann war das letzte erfolgreiche?
 - Wie viele **Clients** sind am Server (Remotedesktop, SMB, TCP-Verbindungen)?
+- Welche **Netzwerkverbindungen** bestehen – getrennt nach lokalem Netz (LAN) und Internet?
+- Auf **Domänencontrollern**: Zustand von Active Directory (Dienste, Replikation, Betriebsmaster, Benutzer, gesperrte Konten).
+- Auf **DHCP-Servern**: Bereiche, Leases und ein IP-Scan, der zeigt, welche Adressen *wirklich* vergeben werden können.
 - Dazu: Laufwerke, Datenträger-Zustand, ausstehender Neustart, Fehler im Ereignisprotokoll.
 
 Alles fließt in eine Ampel und einen Gesundheitswert von 0–100 – jede Auffälligkeit mit Klartext-Begründung.
@@ -26,6 +29,9 @@ ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases
 | Dienste | WMI `Win32_Service`, Rollen-Liste, eigene Überwachungsliste |
 | Datenbanken | SQL Server, PostgreSQL, MySQL/MariaDB, Oracle, MongoDB, Firebird, Redis (Dienste) + TCP-Tabelle; SQL-Server-Leistungsindikatoren |
 | Sicherung | Windows Server Backup (Ereignisprotokoll), Veeam, Acronis, Backup Exec, Macrium u. a. (Dienste/Prozesse), geplante Aufgaben mit Backup-Stichwörtern, SQL-Backup-Durchsatz, VSS |
+| Netzwerk | `GetExtendedTcpTable` mit Prozessnamen; Einteilung nach privaten Adressbereichen (RFC 1918, Link-Local, CGNAT), Loopback, Internet |
+| Active Directory | Dienste (NTDS, KDC …), SYSVOL/NETLOGON, `System.DirectoryServices` (Konten, FSMO, Replikation); nur wenn der Dienst NTDS existiert |
+| DHCP | PowerShell-Cmdlets `Get-DhcpServerv4*` (Bereiche, Leases, Reservierungen, Ausschlüsse) + IP-Scan per Ping und ARP; nur wenn der Dienst DHCPServer existiert |
 | Clients | Terminaldienste (WTS), `MSFT_SmbSession`, `GetExtendedTcpTable` |
 | System | Laufzeit, Neustart ausstehend, Laufwerke, `MSFT_PhysicalDisk` |
 | Ereignisse | System- und Anwendungsprotokoll der letzten 24 h |
@@ -34,6 +40,8 @@ Schwellenwerte, zusätzliche Dienste und Backup-Stichwörter stehen unter *Einst
 
 ## Grenzen
 
+- Active-Directory- und DHCP-Seiten sind nur mit Beispieldaten (`--demo`) auf einem normalen PC getestet, nicht auf einem echten Domänencontroller/DHCP-Server. Fehlerberichte willkommen.
+- Der IP-Scan prüft im eigenen Subnetz per ARP (findet auch Geräte mit blockiertem Ping), in anderen Subnetzen nur per Ping. Pro Bereich werden höchstens 4096 Adressen betrachtet; der Scan läuft alle 10 Minuten oder per Knopf.
 - Ohne Administratorrechte fehlen SMB-Clients, SQL-Leistungsindikatoren, manche Aufgaben und das Steuern von Diensten.
 - Backup-Erkennung ist heuristisch (Dienste, Prozesse, Aufgaben, Ereignisprotokoll). Fehlt Ihre Lösung, helfen Stichwörter in den Einstellungen.
 - Detailwerte gibt es für SQL Server; andere Datenbanken zeigen Zustand, CPU, RAM und Verbindungen.
@@ -49,6 +57,10 @@ dotnet publish src/ServerManagerPro -c Release -r win-x64 --self-contained -p:Pu
 ```
 
 Kopfloser Selbsttest, schreibt alle Prüfungen in eine Textdatei: `ServerManagerPro.exe --selftest bericht.txt`
+
+IP-Bereich scannen (Diagnose): `ServerManagerPro.exe --scantest 192.168.1.1-192.168.1.254 antworten.txt`
+
+Oberfläche mit Beispieldaten für AD/DHCP: `ServerManagerPro.exe --demo`
 
 ## Lizenz
 

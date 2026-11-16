@@ -116,6 +116,9 @@
     <tr><td>Dienste</td><td>WMI Win32_Service</td><td>Server-Rollen (AD, DNS, DHCP, IIS, Hyper-V, Remotedesktop …) laufen, eigene „muss laufen“-Liste, Autostart-Dienste mit Fehlercode. Dienste starten, beenden, neu starten.</td></tr>
     <tr><td>Datenbanken</td><td>Dienste + TCP-Tabelle</td><td>SQL Server, PostgreSQL, MySQL/MariaDB, Oracle, MongoDB, Firebird, Redis: Zustand, CPU, RAM, Verbindungen, Client-Rechner, Ports. Bei SQL Server zusätzlich Batch-Requests/s, Trefferquote, Seitenlebensdauer, blockierte Prozesse, Größe und Transaktionen je Datenbank.</td></tr>
     <tr><td>Sicherung</td><td>Ereignisprotokoll, Aufgabenplanung, Prozesse</td><td>Läuft gerade ein Backup (Windows Server Backup, Veeam, Acronis, Backup Exec, Macrium, SQL-Sicherung, VSS-Snapshot)? Wann war die letzte erfolgreiche Sicherung? Schlug eine geplante Aufgabe fehl?</td></tr>
+    <tr><td>Netzwerk</td><td>TCP-Tabelle + Prozesse</td><td>Alle Verbindungen mit Prozess, getrennt nach <b>lokalem Netz (LAN)</b>, <b>Internet</b>, Loopback und lauschenden Ports – umschaltbar und filterbar.</td></tr>
+    <tr><td>Active Directory</td><td>nur auf Domänencontrollern</td><td>Zustand der Domänendienste (NTDS, KDC, DNS, DFSR …), SYSVOL/NETLOGON, Replikation, Betriebsmaster, Benutzer (aktiv, deaktiviert, gesperrt, inaktiv), Computer, Gruppen, Domänen-Admins.</td></tr>
+    <tr><td>DHCP</td><td>nur auf DHCP-Servern</td><td>Bereiche, Leases, Reservierungen und ein <b>IP-Scan (Ping + ARP)</b>: zeigt, welche Adressen wirklich vergeben werden können und welche trotz „frei“ im DHCP antworten (Konflikte).</td></tr>
     <tr><td>Clients</td><td>Terminaldienste, SMB, TCP</td><td>Wer ist per Remotedesktop angemeldet (aktiv/getrennt), welche Rechner greifen per SMB auf Freigaben zu, wie viele TCP-Verbindungen bestehen.</td></tr>
     <tr><td>System</td><td>Registry, Speicher, Storage-WMI</td><td>Laufzeit, ausstehender Neustart, freier Platz je Laufwerk, Zustand der physischen Datenträger.</td></tr>
     <tr><td>Ereignisse</td><td>Ereignisprotokolle</td><td>Fehler und Warnungen der letzten 24 Stunden aus System und Anwendungen, mit Schwellenwerten.</td></tr>
@@ -126,6 +129,9 @@
     <figure class="shot"><img src="img/page1.png" alt="Leistung" loading="lazy"><figcaption>Leistung mit Verlauf und Kernen</figcaption></figure>
     <figure class="shot"><img src="img/page3.png" alt="Dienste" loading="lazy"><figcaption>Dienste durchsuchen und steuern</figcaption></figure>
     <figure class="shot"><img src="img/page5.png" alt="Sicherung" loading="lazy"><figcaption>Sicherung: läuft, letzter Erfolg, Aufgaben</figcaption></figure>
+    <figure class="shot"><img src="img/netzwerk.png" alt="Netzwerkverbindungen getrennt nach LAN und Internet" loading="lazy"><figcaption>Netzwerk: lokal und Internet getrennt</figcaption></figure>
+    <figure class="shot"><img src="img/dhcp.png" alt="DHCP-Bereiche mit IP-Scan" loading="lazy"><figcaption>DHCP: wirklich freie Adressen (Beispieldaten)</figcaption></figure>
+    <figure class="shot"><img src="img/ad.png" alt="Active Directory" loading="lazy"><figcaption>Active Directory auf Domänencontrollern (Beispieldaten)</figcaption></figure>
   </div>
 
   <h2>Funktionen</h2>
@@ -144,6 +150,8 @@
   <h2>Gut zu wissen</h2>
   <div class="note"><p><b>Ohne Administratorrechte</b> fehlen einige Werte: SMB-Clients, SQL-Server-Leistungsindikatoren, manche geplante Aufgaben und das Steuern von Diensten. Die App zeigt das an und läuft trotzdem.</p></div>
   <ul class="plain" style="margin-top:16px">
+    <li><b>Active Directory und DHCP</b> erscheinen nur, wenn die Rolle auf dem Rechner läuft. Die Screenshots dazu zeigen Beispieldaten. Der DHCP-Abgleich nutzt die DHCP-Cmdlets (Rolle bzw. RSAT-Modul <code>DhcpServer</code>) und braucht Leserechte.</li>
+    <li><b>IP-Scan:</b> Im eigenen Subnetz wird per ARP geprüft (findet auch Geräte, die Ping blockieren), in anderen Subnetzen nur per Ping. Ein Gerät mit blockiertem Ping hinter einem Router bleibt dort unentdeckt.</li>
     <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>
     <li><b>Datenbanken:</b> Verbindungen werden über die TCP-Verbindungen der Datenbankprozesse gezählt (alle Engines). Die Tiefe der SQL-Server-Werte erreicht die Sicht anderer Engines noch nicht.</li>
     <li><b>Nicht signiert:</b> Die EXE ist nicht signiert, SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“.</li>

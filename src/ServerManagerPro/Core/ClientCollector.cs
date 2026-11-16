@@ -65,8 +65,6 @@ public static class ClientCollector
                 $"{rdpTotal - rdpActive} getrennte Remotedesktop-Sitzungen belegen Ressourcen und Lizenzen."));
         checks.Add(new CheckResult(cat, "Dateifreigaben-Clients", Health.Ok,
             smb == 0 ? "Keine SMB-Clients verbunden (oder nur mit Administratorrechten lesbar)." : $"{smb} SMB-Sitzung(en) aktiv."));
-        checks.Add(new CheckResult(cat, "Netzwerkverbindungen", established > 20000 ? Health.Warning : Health.Ok,
-            $"{established} aufgebaute TCP-Verbindungen."));
         return (rows, checks, rdpActive, rdpTotal, smb, established);
     }
 

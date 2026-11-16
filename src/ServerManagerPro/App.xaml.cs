@@ -22,6 +22,16 @@ public partial class App : Application
             Shutdown();
             return;
         }
+        int sc = Array.IndexOf(Args, "--scantest");
+        if (sc >= 0 && sc + 2 < Args.Length)
+        {
+            // --scantest 192.168.1.1-192.168.1.254 datei.txt
+            var parts = Args[sc + 1].Split('-');
+            var res = Task.Run(() => DhcpCollector.QuickScan(DhcpCollector.U(parts[0]), DhcpCollector.U(parts[1]))).GetAwaiter().GetResult();
+            File.WriteAllLines(Args[sc + 2], res.Select(r => $"{r.ip}	{(r.mac.Length > 0 ? r.mac : "(nur Ping)")}"));
+            Shutdown();
+            return;
+        }
         base.OnStartup(e);
         new MainWindow().Show();
     }

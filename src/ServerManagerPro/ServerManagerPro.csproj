@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ServerManagerPro</AssemblyName>
     <RootNamespace>ServerManagerPro</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Product>ServerManagerPro</Product>
     <Company>fmatsch</Company>
     <Description>Task-Manager mit Server-Gesundheitscheck für Windows Server 2016+, Windows 10 und 11</Description>
@@ -19,6 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.DirectoryServices" Version="8.0.0" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.1" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.1" />
     <PackageReference Include="System.Management" Version="8.0.0" />

@@ -51,15 +51,18 @@
             <!-- Navigation -->
             <ListBox x:Name="Nav" Background="Transparent" BorderThickness="0" Margin="12,14,6,12"
                      ItemContainerStyle="{StaticResource NavItem}" SelectionChanged="OnNav" SelectedIndex="0">
-                <ListBoxItem Content="Übersicht"/>
-                <ListBoxItem Content="Leistung"/>
-                <ListBoxItem Content="Prozesse"/>
-                <ListBoxItem Content="Dienste"/>
-                <ListBoxItem Content="Datenbanken"/>
-                <ListBoxItem Content="Sicherung"/>
-                <ListBoxItem Content="Clients"/>
-                <ListBoxItem Content="Ereignisse"/>
-                <ListBoxItem Content="Einstellungen"/>
+                <ListBoxItem Content="Übersicht" Tag="PageOverview"/>
+                <ListBoxItem Content="Leistung" Tag="PagePerf"/>
+                <ListBoxItem Content="Prozesse" Tag="PageProcs"/>
+                <ListBoxItem Content="Dienste" Tag="PageServices"/>
+                <ListBoxItem Content="Datenbanken" Tag="PageDb"/>
+                <ListBoxItem Content="Sicherung" Tag="PageBackup"/>
+                <ListBoxItem Content="Clients" Tag="PageClients"/>
+                <ListBoxItem Content="Netzwerk" Tag="PageNet"/>
+                <ListBoxItem x:Name="NavAd" Content="Active Directory" Tag="PageAd" Visibility="Collapsed"/>
+                <ListBoxItem x:Name="NavDhcp" Content="DHCP &amp; IP-Adressen" Tag="PageDhcp" Visibility="Collapsed"/>
+                <ListBoxItem Content="Ereignisse" Tag="PageEvents"/>
+                <ListBoxItem Content="Einstellungen" Tag="PageSettings"/>
             </ListBox>
 
             <Grid Grid.Column="1" Margin="6,14,16,12">
@@ -371,6 +374,164 @@
                             <DataGridTextColumn Header="Client" Binding="{Binding Client}" Width="*"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="120"/>
                             <DataGridTextColumn Header="Details" Binding="{Binding Info}" Width="1.5*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <!-- Netzwerk -->
+                <DockPanel x:Name="PageNet" Visibility="Collapsed">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <WrapPanel x:Name="NetFacts"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="Anzeige:" VerticalAlignment="Center" Style="{StaticResource Muted}" Margin="0,0,8,0"/>
+                                <ComboBox x:Name="NetMode" Width="260" SelectedIndex="0" SelectionChanged="OnNetMode">
+                                    <ComboBoxItem Content="Getrennt: lokal (LAN) und Internet"/>
+                                    <ComboBoxItem Content="Nur lokales Netz (LAN)"/>
+                                    <ComboBoxItem Content="Nur Internet"/>
+                                    <ComboBoxItem Content="Nur dieser Rechner (Loopback)"/>
+                                    <ComboBoxItem Content="Lauschende Ports"/>
+                                    <ComboBoxItem Content="Alle, unsortiert"/>
+                                </ComboBox>
+                                <TextBox x:Name="NetFilter" Width="220" Margin="12,0,0,0" TextChanged="OnNetFilter" ToolTip="Nach Prozess, Adresse oder Port filtern"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <DataGrid x:Name="NetGrid">
+                        <DataGrid.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#1F4150" Padding="12,6">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14"/>
+                                                <TextBlock Text="{Binding ItemCount, StringFormat='  ({0})'}" Style="{StaticResource Muted}" FontSize="14"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Prozess" Binding="{Binding Process}" Width="1.2*"/>
+                            <DataGridTextColumn Header="PID" Binding="{Binding Pid}" Width="70"/>
+                            <DataGridTextColumn Header="Lokal" Binding="{Binding Local}" Width="1.5*"/>
+                            <DataGridTextColumn Header="Gegenstelle" Binding="{Binding Remote}" Width="1.8*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="120"/>
+                            <DataGridTextColumn Header="Netz" Binding="{Binding Scope}" Width="110"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <!-- Active Directory -->
+                <ScrollViewer x:Name="PageAd" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse x:Name="AdDot" Style="{StaticResource Dot}" Width="14" Height="14" Fill="Gray" Margin="0,0,10,0"/>
+                                    <TextBlock x:Name="AdHead" FontSize="18" FontWeight="SemiBold" Text="Active Directory"/>
+                                    <TextBlock x:Name="AdDemo" Text="  (Beispieldaten)" Foreground="#F59E0B" Visibility="Collapsed" FontSize="14" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock x:Name="AdSub" Style="{StaticResource Muted}" Margin="24,2,0,10" TextWrapping="Wrap"/>
+                                <WrapPanel x:Name="AdFacts" Margin="24,0,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Dienste" FontWeight="SemiBold" FontSize="15" Margin="2,4,0,8"/>
+                        <DataGrid x:Name="AdSvcGrid" Margin="0,0,12,16" MaxHeight="240">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Dienst" Binding="{Binding DisplayName}" Width="2*"/>
+                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="120"/>
+                                <DataGridTextColumn Header="Starttyp" Binding="{Binding StartMode}" Width="100"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="Replikation" FontWeight="SemiBold" FontSize="15" Margin="2,4,0,8"/>
+                        <DataGrid x:Name="AdReplGrid" Margin="0,0,12,16" MaxHeight="240">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Partner" Binding="{Binding Partner}" Width="*"/>
+                                <DataGridTextColumn Header="Partition" Binding="{Binding Partition}" Width="2*"/>
+                                <DataGridTextColumn Header="Letzte Synchronisierung" Binding="{Binding LastSuccess, StringFormat=g}" Width="170"/>
+                                <DataGridTextColumn Header="Ergebnis" Binding="{Binding Result}" Width="110"/>
+                                <DataGridTextColumn Header="Fehler in Folge" Binding="{Binding Failures}" Width="120"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="Betriebsmaster (FSMO)" FontWeight="SemiBold" FontSize="15" Margin="2,4,0,8"/>
+                        <DataGrid x:Name="AdFsmoGrid" Margin="0,0,12,16" MaxHeight="220">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Rolle" Binding="{Binding Key}" Width="*"/>
+                                <DataGridTextColumn Header="Inhaber" Binding="{Binding Value}" Width="2*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- DHCP -->
+                <DockPanel x:Name="PageDhcp" Visibility="Collapsed">
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse x:Name="DhcpDot" Style="{StaticResource Dot}" Width="14" Height="14" Fill="Gray" Margin="0,0,10,0"/>
+                                <TextBlock x:Name="DhcpHead" FontSize="18" FontWeight="SemiBold" Text="DHCP-Server"/>
+                                <TextBlock x:Name="DhcpDemo" Text="  (Beispieldaten)" Foreground="#F59E0B" Visibility="Collapsed" FontSize="14" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DhcpSub" Style="{StaticResource Muted}" Margin="24,2,0,8" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Margin="24,0,0,0">
+                                <Button x:Name="ScanButton" Content="Netz jetzt scannen" Click="OnDhcpScan"/>
+                                <TextBlock x:Name="ScanInfo" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                    <DataGrid x:Name="ScopeGrid" DockPanel.Dock="Top" MaxHeight="190" Margin="0,0,12,10" SelectionChanged="OnScopeSelected">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Bereich" Binding="{Binding ScopeId}" Width="130"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.3*"/>
+                            <DataGridTextColumn Header="Adressen" Binding="{Binding Range}" Width="2.2*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="80"/>
+                            <DataGridTextColumn Header="Gesamt" Binding="{Binding Total}" Width="70"/>
+                            <DataGridTextColumn Header="Vergeben" Binding="{Binding Leased}" Width="80"/>
+                            <DataGridTextColumn Header="Reserviert" Binding="{Binding Reserved}" Width="85"/>
+                            <DataGridTextColumn Header="Laut DHCP frei" Binding="{Binding ServerFree}" Width="105"/>
+                            <DataGridTextColumn Header="Konflikte" Binding="{Binding Conflicts}" Width="80"/>
+                            <DataGridTextColumn Header="Wirklich frei" Binding="{Binding ReallyFree}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Adressen:" VerticalAlignment="Center" Style="{StaticResource Muted}" Margin="0,0,8,0"/>
+                        <ComboBox x:Name="IpMode" Width="220" SelectedIndex="0" SelectionChanged="OnIpFilter">
+                            <ComboBoxItem Content="Alle"/>
+                            <ComboBoxItem Content="Wirklich frei (vergebbar)"/>
+                            <ComboBoxItem Content="Konflikte und abgelehnt"/>
+                            <ComboBoxItem Content="Vergeben"/>
+                            <ComboBoxItem Content="Reserviert"/>
+                        </ComboBox>
+                        <TextBox x:Name="IpFilter" Width="200" Margin="12,0,0,0" TextChanged="OnIpFilterText" ToolTip="Nach IP, Name oder MAC filtern"/>
+                    </StackPanel>
+                    <DataGrid x:Name="IpGrid">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="IP-Adresse" Binding="{Binding Ip}" Width="130"/>
+                            <DataGridTemplateColumn Header="Status" Width="130">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Status}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#E6EDF3"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Frei"><Setter Property="Foreground" Value="#22C55E"/></DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Konflikt"><Setter Property="Foreground" Value="#EF4444"/></DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Abgelehnt"><Setter Property="Foreground" Value="#F59E0B"/></DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Ausgeschlossen"><Setter Property="Foreground" Value="#8B9BAB"/></DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Host}" Width="*"/>
+                            <DataGridTextColumn Header="MAC" Binding="{Binding Mac}" Width="150"/>
+                            <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="2*"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

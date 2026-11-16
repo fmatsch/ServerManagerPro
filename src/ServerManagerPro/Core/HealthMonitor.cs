@@ -12,6 +12,10 @@ public sealed class HealthMonitor : IDisposable
     readonly MetricsSampler _sampler = new();
     readonly ProcessCollector _procs = new();
     readonly DatabaseCollector _dbs = new();
+    readonly DhcpCollector _dhcp = new();
+    (AdInfo info, List<CheckResult> checks)? _ad;
+    DateTime _adAt = DateTime.MinValue;
+    public bool Demo { get; set; }
     readonly Queue<MetricsSnapshot> _recent = new();
     readonly CancellationTokenSource _cts = new();
     List<ProcRecord> _lastProcs = new();
@@ -30,6 +34,7 @@ public sealed class HealthMonitor : IDisposable
     }
 
     public void RefreshNow() => _forceSlow = true;
+    public void ScanDhcpNow() => _dhcp.RequestScan();
 
     async Task Loop(Action body, Func<int> delay)
     {
@@ -103,6 +108,31 @@ public sealed class HealthMonitor : IDisposable
         var cl = Guard("Clients", () => ClientCollector.Collect(tcp), (new List<SessionRow>(), new List<CheckResult>(), 0, 0, 0, 0));
         snap.Sessions = cl.Item1; snap.Checks.AddRange(cl.Item2);
         snap.RdpActive = cl.Item3; snap.RdpTotal = cl.Item4; snap.SmbSessions = cl.Item5; snap.TcpEstablished = cl.Item6;
+
+        var net = Guard("Clients", () => NetworkCollector.Collect(tcp, procs), (new List<ConnRow>(), new List<CheckResult>()));
+        snap.Connections = net.Item1; snap.Checks.AddRange(net.Item2);
+
+        // Domänencontroller
+        if (AdCollector.IsDomainController(services))
+        {
+            if (_ad == null || _forceSlow || (DateTime.Now - _adAt).TotalSeconds > 120)
+            {
+                _ad = Guard("Active Directory", () => AdCollector.Collect(services, Settings), ((AdInfo info, List<CheckResult> checks)?)null);
+                _adAt = DateTime.Now;
+            }
+            if (_ad != null) { snap.Ad = _ad.Value.info; snap.Checks.AddRange(_ad.Value.checks); }
+        }
+        else _ad = null;
+
+        // DHCP-Server
+        var dsvc = services.FirstOrDefault(s => s.Name.Equals("DHCPServer", StringComparison.OrdinalIgnoreCase));
+        if (dsvc != null)
+        {
+            var d = Guard("DHCP", () => _dhcp.Collect(dsvc.IsRunning), ((DhcpInfo info, List<CheckResult> checks)?)null);
+            if (d != null) { snap.Dhcp = d.Value.info; snap.Checks.AddRange(d.Value.checks); }
+        }
+
+        if (Demo) DemoData.Apply(snap);
 
         if (_forceSlow || (DateTime.Now - _systemAt).TotalSeconds > 30)
         {
