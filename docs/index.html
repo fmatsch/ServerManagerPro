@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ServerManagerPro – Task-Manager mit Server-Gesundheitscheck für Windows</title>
+<meta name="description" content="Wie der Windows Task-Manager, aber mit Gesundheitscheck: welche Dienste und Datenbanken laufen, wie ausgelastet der Datenbankserver ist, ob ein Backup läuft und wie viele Clients am Server hängen. Für Windows Server ab 2016, Windows 10 und 11.">
+<meta property="og:title" content="ServerManagerPro">
+<meta property="og:description" content="Task-Manager mit Gesundheitscheck für Windows Server, 10 und 11: Dienste, Datenbanken, Backup, Clients.">
+<meta property="og:image" content="https://fmatsch.ist/ServerManagerPro/icon.png">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #ffffff; --text: #1c1b19; --muted: #6b6860;
+    --line: #e4e1d9; --accent: #0f766e; --chip: #efede6;
+    --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px -12px rgba(0,0,0,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --surface: #1d1c1a; --text: #f1efe9; --muted: #a19d93;
+      --line: #2e2c29; --accent: #2dd4bf; --chip: #272522;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  .crumb { padding: 20px 0 0; font-size: 14px; color: var(--muted); }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--accent); }
+
+  .hero { display: flex; gap: 28px; align-items: center; padding: 48px 0 32px; flex-wrap: wrap; }
+  .hero img.icon { width: 112px; height: 112px; border-radius: 26px; box-shadow: var(--shadow); flex: none; }
+  .hero h1 { font-size: clamp(32px, 6vw, 52px); letter-spacing: -0.03em; line-height: 1.05; margin: 0 0 12px; }
+  .hero p { margin: 0; color: var(--muted); font-size: 18px; max-width: 56ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 24px 0 0; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+    padding: 11px 20px; border-radius: 12px; font-weight: 600; font-size: 16px;
+    border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .btn.primary { color: #06201d; } }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dl-meta { font-size: 13px; color: var(--muted); margin-top: 10px; min-height: 1.2em; }
+
+  .shot { margin: 8px 0 0; }
+  .shot img { width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--line); box-shadow: var(--shadow); display: block; }
+  .shot figcaption { color: var(--muted); font-size: 14px; margin-top: 8px; text-align: center; }
+
+  h2 {
+    font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin: 56px 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--line);
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 6px; font-size: 16px; letter-spacing: -0.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .note { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: 16px 20px; box-shadow: var(--shadow); }
+  .note p { margin: 0; }
+  ul.plain { margin: 0; padding-left: 20px; color: var(--muted); }
+  ul.plain li { margin: 6px 0; } ul.plain b { color: var(--text); }
+  code { background: var(--chip); padding: 1px 6px; border-radius: 6px; font-size: .92em; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+  tr:last-child td { border-bottom: 0; }
+  td:first-child { white-space: nowrap; font-weight: 600; }
+  td:nth-child(2) { color: var(--muted); }
+
+  footer {
+    border-top: 1px solid var(--line); margin-top: 64px; padding: 28px 0 48px;
+    color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between;
+  }
+  footer a { color: var(--muted); } footer a:hover { color: var(--accent); }
+  @media (max-width: 480px) { .hero { padding-top: 32px; } .hero img.icon { width: 84px; height: 84px; border-radius: 20px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a href="https://fmatsch.ist/">← fmatsch.ist</a></div>
+
+  <header class="hero">
+    <img class="icon" src="icon.png" alt="" width="112" height="112">
+    <div>
+      <h1>ServerManagerPro</h1>
+      <p>Der Task-Manager für Server: CPU, Speicher, Prozesse und Dienste – plus der Gesundheitscheck, den man sonst an zehn Stellen zusammensucht. Läuft die Datenbank? Wie ausgelastet ist sie? Läuft gerade ein Backup? Wie viele Clients hängen am Server?</p>
+      <div class="actions">
+        <a class="btn primary" id="dl" href="https://github.com/fmatsch/ServerManagerPro/releases/latest">⬇ Herunterladen</a>
+        <a class="btn" href="https://github.com/fmatsch/ServerManagerPro">Quellcode auf GitHub</a>
+      </div>
+      <div class="dl-meta" id="dl-meta">Windows Server 2016+ · Windows 10/11 · kostenlos, MIT-Lizenz</div>
+    </div>
+  </header>
+
+  <figure class="shot">
+    <img src="img/page0.png" alt="Übersicht mit Gesundheitswert, Leistungskacheln und Prüfungen je Bereich" width="1224" height="761">
+    <figcaption>Übersicht: ein Blick genügt – grün, gelb oder rot, mit Begründung.</figcaption>
+  </figure>
+
+  <h2>Was geprüft wird</h2>
+  <table>
+    <tr><th>Bereich</th><th>Woran erkannt</th><th>Was es zeigt</th></tr>
+    <tr><td>Leistung</td><td>Leistungsindikatoren</td><td>CPU (auch je Kern), Arbeitsspeicher, Datenträger-Aktivität und -Durchsatz, Netzwerk; Mittelwert statt Momentaufnahme, damit kurze Spitzen nicht alarmieren.</td></tr>
+    <tr><td>Dienste</td><td>WMI Win32_Service</td><td>Server-Rollen (AD, DNS, DHCP, IIS, Hyper-V, Remotedesktop …) laufen, eigene „muss laufen“-Liste, Autostart-Dienste mit Fehlercode. Dienste starten, beenden, neu starten.</td></tr>
+    <tr><td>Datenbanken</td><td>Dienste + TCP-Tabelle</td><td>SQL Server, PostgreSQL, MySQL/MariaDB, Oracle, MongoDB, Firebird, Redis: Zustand, CPU, RAM, Verbindungen, Client-Rechner, Ports. Bei SQL Server zusätzlich Batch-Requests/s, Trefferquote, Seitenlebensdauer, blockierte Prozesse, Größe und Transaktionen je Datenbank.</td></tr>
+    <tr><td>Sicherung</td><td>Ereignisprotokoll, Aufgabenplanung, Prozesse</td><td>Läuft gerade ein Backup (Windows Server Backup, Veeam, Acronis, Backup Exec, Macrium, SQL-Sicherung, VSS-Snapshot)? Wann war die letzte erfolgreiche Sicherung? Schlug eine geplante Aufgabe fehl?</td></tr>
+    <tr><td>Clients</td><td>Terminaldienste, SMB, TCP</td><td>Wer ist per Remotedesktop angemeldet (aktiv/getrennt), welche Rechner greifen per SMB auf Freigaben zu, wie viele TCP-Verbindungen bestehen.</td></tr>
+    <tr><td>System</td><td>Registry, Speicher, Storage-WMI</td><td>Laufzeit, ausstehender Neustart, freier Platz je Laufwerk, Zustand der physischen Datenträger.</td></tr>
+    <tr><td>Ereignisse</td><td>Ereignisprotokolle</td><td>Fehler und Warnungen der letzten 24 Stunden aus System und Anwendungen, mit Schwellenwerten.</td></tr>
+  </table>
+
+  <h2>Oberfläche</h2>
+  <div class="shots">
+    <figure class="shot"><img src="img/page1.png" alt="Leistung" loading="lazy"><figcaption>Leistung mit Verlauf und Kernen</figcaption></figure>
+    <figure class="shot"><img src="img/page3.png" alt="Dienste" loading="lazy"><figcaption>Dienste durchsuchen und steuern</figcaption></figure>
+    <figure class="shot"><img src="img/page5.png" alt="Sicherung" loading="lazy"><figcaption>Sicherung: läuft, letzter Erfolg, Aufgaben</figcaption></figure>
+  </div>
+
+  <h2>Funktionen</h2>
+  <div class="grid">
+    <div class="card"><h3>Gesundheitswert</h3><p>Alle Prüfungen fließen in eine Ampel und einen Wert von 0–100. Jede Auffälligkeit sagt im Klartext, was los ist.</p></div>
+    <div class="card"><h3>Ein Programm, keine Installation</h3><p>Eine einzige EXE, die .NET gleich mitbringt. Auf einem Server einfach kopieren und starten.</p></div>
+    <div class="card"><h3>Für Server und Arbeitsplatz</h3><p>Windows Server 2016, 2019, 2022, 2025 sowie Windows 10 und 11 (64 Bit).</p></div>
+    <div class="card"><h3>Anpassbar</h3><p>Schwellenwerte, eigene Dienste, die laufen müssen, zusätzliche Datenbank-Dienste und Backup-Stichwörter.</p></div>
+    <div class="card"><h3>Bericht exportieren</h3><p>Der aktuelle Zustand als Markdown-Bericht – für Tickets, Wartungsprotokolle oder die Übergabe.</p></div>
+    <div class="card"><h3>Nur lesen, nichts verstellen</h3><p>Die App misst nur. Eingriffe (Dienst starten/beenden, Prozess beenden) passieren erst nach Bestätigung.</p></div>
+  </div>
+
+  <h2>Installation</h2>
+  <p style="color:var(--muted);margin-top:0">ZIP von der <a href="https://github.com/fmatsch/ServerManagerPro/releases/latest">Release-Seite</a> laden, entpacken und <b>ServerManagerPro.exe</b> starten. Für das volle Bild als Administrator ausführen (Button „Als Administrator starten“ in der Kopfzeile). Einstellungen liegen in <code>C:\ProgramData\ServerManagerPro\settings.json</code>.</p>
+
+  <h2>Gut zu wissen</h2>
+  <div class="note"><p><b>Ohne Administratorrechte</b> fehlen einige Werte: SMB-Clients, SQL-Server-Leistungsindikatoren, manche geplante Aufgaben und das Steuern von Diensten. Die App zeigt das an und läuft trotzdem.</p></div>
+  <ul class="plain" style="margin-top:16px">
+    <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>
+    <li><b>Datenbanken:</b> Verbindungen werden über die TCP-Verbindungen der Datenbankprozesse gezählt (alle Engines). Die Tiefe der SQL-Server-Werte erreicht die Sicht anderer Engines noch nicht.</li>
+    <li><b>Nicht signiert:</b> Die EXE ist nicht signiert, SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“.</li>
+  </ul>
+
+  <footer>
+    <span>© <span id="year">2026</span> Florian Matscheko · MIT-Lizenz</span>
+    <span><a href="https://github.com/fmatsch/ServerManagerPro">GitHub</a> · <a href="https://fmatsch.ist/">fmatsch.ist</a></span>
+  </footer>
+</div>
+<script>
+  document.getElementById("year").textContent = new Date().getFullYear();
+  // Direktlink zum neuesten Release; ohne Netz oder ohne Release bleibt der statische Link.
+  fetch("https://api.github.com/repos/fmatsch/ServerManagerPro/releases/latest")
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rel => {
+      const a = (rel.assets || []).find(x => x.name.endsWith(".zip"));
+      if (!a) return;
+      document.getElementById("dl").href = a.browser_download_url;
+      document.getElementById("dl-meta").textContent =
+        `${rel.tag_name} · ${(a.size / 1048576).toFixed(0)} MB · Windows Server 2016+, Windows 10/11 · kostenlos, MIT-Lizenz`;
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>
