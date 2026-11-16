@@ -28,6 +28,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="AdminButton" Content="Als Administrator starten" Click="OnElevate" Visibility="Collapsed"
                             ToolTip="Für Dienste steuern, SMB-Clients und SQL-Leistungsindikatoren sind Administratorrechte nötig."/>
+                    <Button Content="Overlay" Click="OnOverlayToggle" ToolTip="Kennzahlen als dauerhaftes Overlay anzeigen (Strg+Alt+O)"/>
                     <Button Content="Aktualisieren" Click="OnRefresh"/>
                     <Border Background="{StaticResource Panel2}" CornerRadius="10" Padding="16,6" Margin="8,0,0,0">
                         <StackPanel Orientation="Horizontal">
@@ -561,6 +562,42 @@
                 <!-- 8: Einstellungen -->
                 <ScrollViewer x:Name="PageSettings" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Overlay – Kennzahlen dauerhaft im Blick" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,4"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                           Text="Ein kleines Fenster über allem anderen, durch das man hindurchklickt – wie ein FPS-Overlay. Es nimmt nie den Fokus und liest nur vorhandene Messwerte. Ein/Aus: Strg+Alt+O, Hauptfenster: Strg+Alt+M, Tray-Symbol für Verschieben und Beenden."/>
+                                <TextBlock Text="Angezeigte Kennzahlen" Margin="0,0,0,6"/>
+                                <WrapPanel x:Name="OvMetrics" Margin="0,0,0,6"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,10">
+                                    <TextBlock Text="Position" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <ComboBox x:Name="OvCorner" Width="170" SelectionChanged="OnOverlayChanged">
+                                        <ComboBoxItem Content="Oben rechts"/>
+                                        <ComboBoxItem Content="Oben links"/>
+                                        <ComboBoxItem Content="Unten rechts"/>
+                                        <ComboBoxItem Content="Unten links"/>
+                                        <ComboBoxItem Content="Frei verschoben"/>
+                                    </ComboBox>
+                                    <TextBlock Text="Anordnung" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                                    <ComboBox x:Name="OvLayout" Width="150" SelectionChanged="OnOverlayChanged">
+                                        <ComboBoxItem Content="Untereinander"/>
+                                        <ComboBoxItem Content="Leiste (in einer Zeile)"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <TextBlock Text="Deckkraft" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Slider x:Name="OvOpacity" Width="140" Minimum="30" Maximum="100" ValueChanged="OnOverlaySlider" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Schriftgröße" VerticalAlignment="Center" Margin="22,0,8,0"/>
+                                    <Slider x:Name="OvFont" Width="140" Minimum="10" Maximum="24" ValueChanged="OnOverlaySlider" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <CheckBox x:Name="OvOnStart" Content="Overlay beim Programmstart anzeigen" Checked="OnOverlayChanged" Unchecked="OnOverlayChanged"/>
+                                <CheckBox x:Name="OvAutostart" Content="Mit Windows starten (nur Overlay, im Hintergrund)" Checked="OnAutostartChanged" Unchecked="OnAutostartChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Button Content="Overlay ein/aus" Click="OnOverlayToggle"/>
+                                    <Button Content="Overlay verschieben" Click="OnOverlayMove" ToolTip="Danach das Overlay mit der Maus ziehen und loslassen"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource Card}">
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="120"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

@@ -109,6 +109,21 @@
     <figcaption>Übersicht: ein Blick genügt – grün, gelb oder rot, mit Begründung.</figcaption>
   </figure>
 
+  <h2>Overlay: Kennzahlen immer im Blick</h2>
+  <div class="shots" style="grid-template-columns:1fr 1fr;align-items:center">
+    <figure class="shot"><img src="img/overlay.png" alt="Overlay mit Kennzahlen über dem Hauptfenster" loading="lazy"><figcaption>Overlay (oben rechts) über der Arbeit – DHCP-Zeile mit Beispieldaten</figcaption></figure>
+    <div>
+      <p style="margin-top:0;color:var(--muted)">Wie ein FPS-Overlay in Spielen: ein kleines Fenster mit den Kennzahlen, die <b>Sie</b> auswählen – immer im Vordergrund, aber <b>klickdurchlässig</b> und ohne Fokus. Es stört weder Mausklicks noch Tastatureingaben.</p>
+      <ul class="plain">
+        <li><b>Frei wählbar:</b> Gesundheitswert, CPU, RAM, Datenträger, Netzwerk, freier Platz, Prozess mit höchster CPU, Datenbank, Remote-Sitzungen, SMB, Internet-Verbindungen, Backup, DHCP, Active Directory.</li>
+        <li><b>Ampelfarben</b> nach Ihren Schwellenwerten, Position in jeder Ecke oder frei verschiebbar, untereinander oder als Leiste.</li>
+        <li><b>Strg+Alt+O</b> blendet ein/aus, <b>Strg+Alt+M</b> öffnet das Hauptfenster; Tray-Symbol zum Verschieben und Beenden.</li>
+        <li><b>Sparsam:</b> Ist nur das Overlay offen, läuft die App mit niedriger Priorität und misst nur, was das Overlay braucht. Auf dem Testrechner waren das etwa 4&nbsp;% eines Kerns.</li>
+        <li>Start direkt im Hintergrund mit <code>ServerManagerPro.exe --overlay</code>, optional mit Windows.</li>
+      </ul>
+    </div>
+  </div>
+
   <h2>Was geprüft wird</h2>
   <table>
     <tr><th>Bereich</th><th>Woran erkannt</th><th>Was es zeigt</th></tr>
@@ -150,6 +165,7 @@
   <h2>Gut zu wissen</h2>
   <div class="note"><p><b>Ohne Administratorrechte</b> fehlen einige Werte: SMB-Clients, SQL-Server-Leistungsindikatoren, manche geplante Aufgaben und das Steuern von Diensten. Die App zeigt das an und läuft trotzdem.</p></div>
   <ul class="plain" style="margin-top:16px">
+    <li><b>Overlay:</b> Es erscheint über Fenstern und randlosen Vollbild-Anwendungen, aber nicht über Spielen oder Programmen im exklusiven Vollbildmodus.</li>
     <li><b>Active Directory und DHCP</b> erscheinen nur, wenn die Rolle auf dem Rechner läuft. Die Screenshots dazu zeigen Beispieldaten. Der DHCP-Abgleich nutzt die DHCP-Cmdlets (Rolle bzw. RSAT-Modul <code>DhcpServer</code>) und braucht Leserechte.</li>
     <li><b>IP-Scan:</b> Im eigenen Subnetz wird per ARP geprüft (findet auch Geräte, die Ping blockieren), in anderen Subnetzen nur per Ping. Ein Gerät mit blockiertem Ping hinter einem Router bleibt dort unentdeckt.</li>
     <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>

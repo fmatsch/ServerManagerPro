@@ -19,6 +19,21 @@ public static class Native
     [DllImport("kernel32.dll")]
     public static extern ulong GetTickCount64();
 
+    [DllImport("kernel32.dll")]
+    static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
+    static long _pIdle, _pKernel, _pUser;
+
+    /// <summary>Gesamt-CPU wie im Task-Manager, praktisch ohne Kosten (Differenz der Systemzeiten).</summary>
+    public static double CpuTotal()
+    {
+        if (!GetSystemTimes(out long idle, out long kernel, out long user)) return 0;
+        long di = idle - _pIdle, dk = kernel - _pKernel, du = user - _pUser;
+        bool first = _pKernel == 0;
+        _pIdle = idle; _pKernel = kernel; _pUser = user;
+        long total = dk + du; // Kernelzeit enthält die Leerlaufzeit
+        return first || total <= 0 ? 0 : Math.Clamp((total - di) * 100.0 / total, 0, 100);
+    }
+
     public static (double usedPct, double usedGb, double totalGb) Memory()
     {
         var m = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };

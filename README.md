@@ -9,6 +9,7 @@ Der **Task-Manager für Server**: CPU, Speicher, Prozesse und Dienste – plus d
 - Welche **Netzwerkverbindungen** bestehen – getrennt nach lokalem Netz (LAN) und Internet?
 - Auf **Domänencontrollern**: Zustand von Active Directory (Dienste, Replikation, Betriebsmaster, Benutzer, gesperrte Konten).
 - Auf **DHCP-Servern**: Bereiche, Leases und ein IP-Scan, der zeigt, welche Adressen *wirklich* vergeben werden können.
+- **Overlay:** frei gewählte Kennzahlen als kleines, klickdurchlässiges Fenster dauerhaft im Vordergrund – wie ein FPS-Overlay.
 - Dazu: Laufwerke, Datenträger-Zustand, ausstehender Neustart, Fehler im Ereignisprotokoll.
 
 Alles fließt in eine Ampel und einen Gesundheitswert von 0–100 – jede Auffälligkeit mit Klartext-Begründung.
@@ -20,6 +21,19 @@ Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (6
 ## Installation
 
 ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) laden, entpacken, `ServerManagerPro.exe` starten. Die EXE bringt .NET mit; es muss nichts installiert werden. Für das volle Bild als **Administrator** starten (Button in der Kopfzeile).
+
+## Overlay
+
+Ein kleines Fenster über allem anderen mit den Kennzahlen, die Sie unter *Einstellungen → Overlay* auswählen (Gesundheitswert, CPU, RAM, Datenträger, Netzwerk, freier Platz, Top-Prozess, Datenbank, Remote-Sitzungen, SMB, Internet-Verbindungen, Backup, DHCP, Active Directory).
+
+- klickdurchlässig und ohne Fokus – Maus und Tastatur gehen durch das Overlay hindurch
+- **Strg+Alt+O** ein/aus, **Strg+Alt+M** Hauptfenster; Tray-Symbol: verschieben, Hauptfenster, beenden
+- Position in jeder Ecke oder frei verschiebbar, untereinander oder als Leiste, Deckkraft und Schriftgröße einstellbar
+- läuft nur das Overlay, arbeitet die App mit niedriger Priorität und misst nur das Nötige (gemessen: gut 4 % eines Kerns auf einem 24-Thread-Rechner mit Gesundheitswert)
+- Start direkt im Hintergrund: `ServerManagerPro.exe --overlay`; optional mit Windows starten (Einstellungen)
+- Hinweis: sichtbar über Fenstern und randlosen Vollbildern, nicht über Programmen im exklusiven Vollbildmodus
+
+![Overlay](docs/img/overlay.png)
 
 ## Was erkannt wird
 

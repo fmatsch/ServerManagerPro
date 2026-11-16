@@ -24,7 +24,7 @@ public sealed class CoreVm : Observable
 
 public partial class MainWindow : Window
 {
-    readonly AppSettings _cfg = AppSettings.Load();
+    readonly AppSettings _cfg = App.Settings;
     readonly HealthMonitor _mon;
     readonly ObservableCollection<ProcessRow> _procs = new();
     readonly ObservableCollection<ServiceRow> _services = new();
@@ -52,19 +52,16 @@ public partial class MainWindow : Window
         if (!Native.IsAdmin()) AdminButton.Visibility = Visibility.Visible;
         LoadSettingsUi();
 
-        _mon = new HealthMonitor(_cfg);
+        _mon = App.Monitor;
         _mon.MetricsUpdated += m => Dispatcher.BeginInvoke(() => OnMetrics(m));
         _mon.ProcessesUpdated += p => Dispatcher.BeginInvoke(() => OnProcesses(p));
         _mon.ServicesUpdated += s => Dispatcher.BeginInvoke(() => OnServices(s));
         _mon.HealthUpdated += s => Dispatcher.BeginInvoke(() => OnHealth(s));
-        if (App.Args.Contains("--demo"))
-        {
-            _mon.Demo = true;
-            NavAd.Visibility = NavDhcp.Visibility = Visibility.Visible;
-        }
+        if (App.Args.Contains("--demo")) NavAd.Visibility = NavDhcp.Visibility = Visibility.Visible;
+        BuildOverlayUi();
+        LoadOverlayUi();
+        App.Overlay.Moved += () => Dispatcher.BeginInvoke(() => { _ovLoading = true; OvCorner.SelectedIndex = 4; _ovLoading = false; });
         _ready = true;
-        _mon.Start();
-        Closed += (_, _) => _mon.Dispose();
 
         HandleCommandLine();
     }
@@ -233,10 +230,24 @@ public partial class MainWindow : Window
                 var root = (FrameworkElement)Content;
                 var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                 rtb.Render(root);
+                BitmapSource final = rtb;
+                if (App.Args.Contains("--with-overlay") && App.Overlay.IsShown)
+                {
+                    var ov = App.Overlay.Capture();
+                    var dv = new DrawingVisual();
+                    using (var dc = dv.RenderOpen())
+                    {
+                        dc.DrawImage(rtb, new Rect(0, 0, rtb.Width, rtb.Height));
+                        dc.DrawImage(ov, new Rect(rtb.Width - ov.Width - 40, 86, ov.Width, ov.Height));
+                    }
+                    var comp = new RenderTargetBitmap(rtb.PixelWidth, rtb.PixelHeight, 96, 96, PixelFormats.Pbgra32);
+                    comp.Render(dv);
+                    final = comp;
+                }
                 var enc = new PngBitmapEncoder();
-                enc.Frames.Add(BitmapFrame.Create(rtb));
+                enc.Frames.Add(BitmapFrame.Create(final));
                 using (var fs = File.Create(path)) enc.Save(fs);
-                Application.Current.Shutdown();
+                App.Quit();
             };
             t.Start();
         }
@@ -261,7 +272,7 @@ public partial class MainWindow : Window
         try
         {
             Process.Start(new ProcessStartInfo(Environment.ProcessPath!) { Verb = "runas", UseShellExecute = true });
-            Application.Current.Shutdown();
+            App.Quit();
         }
         catch (Win32Exception) { /* UAC abgebrochen */ }
     }
@@ -271,6 +282,7 @@ public partial class MainWindow : Window
 
     void OnMetrics(MetricsSnapshot m)
     {
+        if (!IsVisible) return;
         TileCpu.Text = $"{m.Cpu:0}%";
         TileMem.Text = $"{m.MemUsedPct:0}%  ·  {m.MemUsedGb:0.0} GB";
         TileDisk.Text = $"{m.DiskBusy:0}%  ·  {Rate(m.DiskReadBps + m.DiskWriteBps)}";
@@ -294,6 +306,7 @@ public partial class MainWindow : Window
     // ---------- Prozesse ----------
     void OnProcesses(List<ProcRecord> list)
     {
+        if (!IsVisible) return;
         var byPid = _procs.ToDictionary(p => p.Pid);
         var alive = new HashSet<int>();
         foreach (var r in list)
@@ -328,6 +341,7 @@ public partial class MainWindow : Window
     // ---------- Dienste ----------
     void OnServices(List<ServiceRow> list)
     {
+        if (!IsVisible) return;
         var byName = _services.ToDictionary(s => s.Name, StringComparer.OrdinalIgnoreCase);
         var alive = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var r in list)
@@ -367,6 +381,7 @@ public partial class MainWindow : Window
 
     void OnHealth(Snapshot s)
     {
+        if (!IsVisible) return;
         _last = s;
         var overall = HealthMonitor.Overall(s.Checks);
         int score = HealthMonitor.Score(s.Checks);
@@ -493,4 +508,62 @@ public partial class MainWindow : Window
         File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
         SettingsInfo.Text = "Bericht gespeichert: " + dlg.FileName;
     }
+
+    // ---------- Overlay ----------
+    bool _ovLoading;
+    readonly Dictionary<string, CheckBox> _ovBoxes = new();
+    static readonly string[] Corners = { "TopRight", "TopLeft", "BottomRight", "BottomLeft", "Custom" };
+
+    void BuildOverlayUi()
+    {
+        foreach (var (key, name, _, _) in OverlayWindow.Catalog)
+        {
+            var cb = new CheckBox { Content = name, Tag = key };
+            cb.Checked += OnOverlayChanged; cb.Unchecked += OnOverlayChanged;
+            _ovBoxes[key] = cb;
+            OvMetrics.Children.Add(cb);
+        }
+    }
+
+    void LoadOverlayUi()
+    {
+        _ovLoading = true;
+        foreach (var kv in _ovBoxes) kv.Value.IsChecked = _cfg.OverlayMetrics.Contains(kv.Key);
+        OvCorner.SelectedIndex = Math.Max(0, Array.IndexOf(Corners, _cfg.OverlayCorner));
+        OvLayout.SelectedIndex = _cfg.OverlayHorizontal ? 1 : 0;
+        OvOpacity.Value = _cfg.OverlayOpacity * 100;
+        OvFont.Value = _cfg.OverlayFont;
+        OvOnStart.IsChecked = _cfg.OverlayOnStart;
+        try { OvAutostart.IsChecked = App.Autostart; } catch { }
+        _ovLoading = false;
+    }
+
+    void OnOverlayChanged(object sender, RoutedEventArgs e) => ApplyOverlayUi();
+    void OnOverlaySlider(object sender, RoutedPropertyChangedEventArgs<double> e) => ApplyOverlayUi();
+
+    void ApplyOverlayUi()
+    {
+        if (!_ready || _ovLoading) return;
+        // Reihenfolge wie im Katalog; "Frei verschoben" nur behalten, wenn schon eine Position gespeichert wurde
+        _cfg.OverlayMetrics = OverlayWindow.Catalog.Where(c => _ovBoxes[c.key].IsChecked == true).Select(c => c.key).ToList();
+        string corner = Corners[Math.Max(0, OvCorner.SelectedIndex)];
+        _cfg.OverlayCorner = corner == "Custom" && _cfg.OverlayX == 0 && _cfg.OverlayY == 0 ? "TopRight" : corner;
+        _cfg.OverlayHorizontal = OvLayout.SelectedIndex == 1;
+        _cfg.OverlayOpacity = OvOpacity.Value / 100.0;
+        _cfg.OverlayFont = Math.Round(OvFont.Value);
+        _cfg.OverlayOnStart = OvOnStart.IsChecked == true;
+        _cfg.Save();
+        App.Overlay.ApplySettings();
+        App.UpdateDemand();
+    }
+
+    void OnAutostartChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _ovLoading) return;
+        try { App.Autostart = OvAutostart.IsChecked == true; }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Autostart", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    void OnOverlayToggle(object sender, RoutedEventArgs e) => App.ToggleOverlay();
+    void OnOverlayMove(object sender, RoutedEventArgs e) => App.Overlay.ToggleMove();
 }

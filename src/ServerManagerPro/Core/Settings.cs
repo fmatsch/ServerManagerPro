@@ -21,6 +21,18 @@ public sealed class AppSettings
     /// <summary>Zusätzliche Stichwörter, an denen Backup-Aufgaben erkannt werden.</summary>
     public List<string> ExtraBackupKeywords { get; set; } = new();
 
+    // ---- Overlay ----
+    public bool OverlayOnStart { get; set; }
+    /// <summary>cpu, ram, disk, net, health, free, topproc, dbconn, rdp, smb, inet, backup, dhcp, ad</summary>
+    public List<string> OverlayMetrics { get; set; } = new() { "health", "cpu", "ram", "disk", "net" };
+    /// <summary>TopRight, TopLeft, BottomRight, BottomLeft oder Custom (frei verschoben).</summary>
+    public string OverlayCorner { get; set; } = "TopRight";
+    public double OverlayX { get; set; }
+    public double OverlayY { get; set; }
+    public bool OverlayHorizontal { get; set; }
+    public double OverlayOpacity { get; set; } = 0.85;
+    public double OverlayFont { get; set; } = 13;
+
     static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
     public static string Directory

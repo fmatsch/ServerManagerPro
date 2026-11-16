@@ -5,14 +5,12 @@ namespace ServerManagerPro.Core;
 /// <summary>Liest CPU, RAM, Datenträger und Netzwerk (Leistungsindikatoren, funktioniert auch ohne Admin-Rechte).</summary>
 public sealed class MetricsSampler : IDisposable
 {
-    PerformanceCounter? _cpu, _diskBusy, _diskRead, _diskWrite, _procs, _threads;
+    PerformanceCounter? _diskBusy, _diskRead, _diskWrite, _procs, _threads;
     PerformanceCounter[] _cores = Array.Empty<PerformanceCounter>();
-    List<PerformanceCounter> _rx = new(), _tx = new();
-    DateTime _netRefresh = DateTime.MinValue;
 
     public MetricsSampler()
     {
-        _cpu = Make("Processor", "% Processor Time", "_Total");
+        Native.CpuTotal();
         _diskBusy = Make("PhysicalDisk", "% Disk Time", "_Total");
         _diskRead = Make("PhysicalDisk", "Disk Read Bytes/sec", "_Total");
         _diskWrite = Make("PhysicalDisk", "Disk Write Bytes/sec", "_Total");
@@ -46,53 +44,66 @@ public sealed class MetricsSampler : IDisposable
         try { return c == null ? 0 : c.NextValue(); } catch { return 0; }
     }
 
-    void RefreshNetwork()
+    // Netzwerk: Byte-Zähler der Adapter (viel billiger als je ein Leistungsindikator pro Adapter)
+    System.Net.NetworkInformation.NetworkInterface[] _nics = Array.Empty<System.Net.NetworkInformation.NetworkInterface>();
+    DateTime _nicRefresh = DateTime.MinValue, _nicAt = DateTime.MinValue;
+    long _rxPrev, _txPrev;
+
+    (double rx, double tx) NetRates()
     {
-        if ((DateTime.UtcNow - _netRefresh).TotalSeconds < 60) return;
-        _netRefresh = DateTime.UtcNow;
-        foreach (var c in _rx.Concat(_tx)) c.Dispose();
-        _rx = new(); _tx = new();
-        try
+        var now = DateTime.UtcNow;
+        if ((now - _nicRefresh).TotalSeconds > 60)
         {
-            var cat = new PerformanceCounterCategory("Network Interface");
-            foreach (var n in cat.GetInstanceNames())
+            _nicRefresh = now;
+            try
             {
-                var lower = n.ToLowerInvariant();
-                if (lower.Contains("loopback") || lower.Contains("isatap") || lower.Contains("teredo")) continue;
-                var r = Make("Network Interface", "Bytes Received/sec", n);
-                var t = Make("Network Interface", "Bytes Sent/sec", n);
-                if (r != null) _rx.Add(r);
-                if (t != null) _tx.Add(t);
+                _nics = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                    .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up
+                             && n.NetworkInterfaceType is not (System.Net.NetworkInformation.NetworkInterfaceType.Loopback or System.Net.NetworkInformation.NetworkInterfaceType.Tunnel))
+                    .ToArray();
             }
+            catch { }
         }
-        catch { }
+        long rx = 0, tx = 0;
+        foreach (var n in _nics)
+        {
+            try { var st = n.GetIPStatistics(); rx += st.BytesReceived; tx += st.BytesSent; } catch { }
+        }
+        double dt = (now - _nicAt).TotalSeconds;
+        double rrx = 0, rtx = 0;
+        if (_nicAt != DateTime.MinValue && dt > 0.2 && rx >= _rxPrev && tx >= _txPrev) { rrx = (rx - _rxPrev) / dt; rtx = (tx - _txPrev) / dt; }
+        _rxPrev = rx; _txPrev = tx; _nicAt = now;
+        return (rrx, rtx);
     }
+
+    /// <summary>Einzelne Kerne nur lesen, wenn das Hauptfenster offen ist.</summary>
+    public volatile bool IncludeCores = true;
 
     public MetricsSnapshot Sample()
     {
-        RefreshNetwork();
         var (pct, used, total) = Native.Memory();
+        var net = NetRates();
         return new MetricsSnapshot
         {
-            Cpu = Math.Clamp(Read(_cpu), 0, 100),
+            Cpu = Native.CpuTotal(),
             MemUsedPct = pct,
             MemUsedGb = used,
             MemTotalGb = total,
             DiskBusy = Math.Clamp(Read(_diskBusy), 0, 100),
             DiskReadBps = Read(_diskRead),
             DiskWriteBps = Read(_diskWrite),
-            NetRxBps = _rx.Sum(Read),
-            NetTxBps = _tx.Sum(Read),
+            NetRxBps = net.rx,
+            NetTxBps = net.tx,
             Processes = (int)Read(_procs),
             Threads = (int)Read(_threads),
-            Cores = _cores.Select(c => Math.Clamp(Read(c), 0, 100)).ToArray(),
+            Cores = IncludeCores ? _cores.Select(c => Math.Clamp(Read(c), 0, 100)).ToArray() : Array.Empty<double>(),
         };
     }
 
     public void Dispose()
     {
-        foreach (var c in new[] { _cpu, _diskBusy, _diskRead, _diskWrite, _procs, _threads }) c?.Dispose();
-        foreach (var c in _cores.Concat(_rx).Concat(_tx)) c.Dispose();
+        foreach (var c in new[] { _diskBusy, _diskRead, _diskWrite, _procs, _threads }) c?.Dispose();
+        foreach (var c in _cores) c.Dispose();
     }
 }
 

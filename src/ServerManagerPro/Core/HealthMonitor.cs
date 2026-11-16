@@ -29,9 +29,15 @@ public sealed class HealthMonitor : IDisposable
 
     public void Start()
     {
-        _ = Task.Run(() => Loop(() => FastOnce(), () => Math.Max(1, Settings.RefreshSeconds) * 1000));
-        _ = Task.Run(() => Loop(() => HealthOnce(), () => 8000));
+        _ = Task.Run(() => Loop(() => FastOnce(), () => Math.Max(Relaxed ? 2 : 1, Settings.RefreshSeconds) * 1000));
+        _ = Task.Run(() => Loop(() => { if (NeedHealth) HealthOnce(); }, () => Relaxed ? 60000 : 8000));
     }
+
+    /// <summary>Bedarfssteuerung: Läuft nur das Overlay mit einfachen Kennzahlen, entfallen Prozess- und Gesundheitsabfragen.</summary>
+    public volatile bool NeedProcesses = true, NeedHealth = true;
+    /// <summary>Hauptfenster zu: Gesundheitsprüfung nur noch jede Minute.</summary>
+    public volatile bool Relaxed;
+    public bool IncludeCores { get => _sampler.IncludeCores; set => _sampler.IncludeCores = value; }
 
     public void RefreshNow() => _forceSlow = true;
     public void ScanDhcpNow() => _dhcp.RequestScan();
@@ -48,17 +54,21 @@ public sealed class HealthMonitor : IDisposable
     public MetricsSnapshot FastOnce()
     {
         var m = _sampler.Sample();
-        var p = _procs.Collect();
         lock (_recent) { _recent.Enqueue(m); while (_recent.Count > 15) _recent.Dequeue(); }
-        _lastProcs = p;
         MetricsUpdated?.Invoke(m);
-        ProcessesUpdated?.Invoke(p);
+        if (NeedProcesses)
+        {
+            var p = _procs.Collect();
+            _lastProcs = p;
+            ProcessesUpdated?.Invoke(p);
+        }
         return m;
     }
 
     public Snapshot HealthOnce()
     {
         var snap = new Snapshot { Time = DateTime.Now, IsAdmin = _admin };
+        if (!NeedProcesses) _lastProcs = _procs.Collect();
         var procs = _lastProcs;
         List<ServiceRow> services = new();
         List<Native.TcpConn> tcp = new();
