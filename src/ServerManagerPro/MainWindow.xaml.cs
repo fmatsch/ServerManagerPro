@@ -47,6 +47,17 @@ public partial class MainWindow : Window
         SvcGrid.ItemsSource = _svcView;
         CoreList.ItemsSource = _cores;
 
+        // Fenster an den Bildschirm anpassen (kleine Auflösungen bis 1024x768)
+        var wa = SystemParameters.WorkArea;
+        Width = Math.Min(Width, wa.Width);
+        Height = Math.Min(Height, wa.Height);
+        var sz = App.Args.SkipWhile(a => a != "--size").Skip(1).FirstOrDefault()?.Split('x');
+        if (sz is { Length: 2 } && double.TryParse(sz[0], out var sw) && double.TryParse(sz[1], out var sh))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual; Left = 0; Top = 0; Width = sw; Height = sh;
+        }
+        SizeChanged += (_, _) => ApplyLayout();
+
         HostText.Text = Environment.MachineName;
         OsText.Text = OsDescription();
         if (!Native.IsAdmin()) AdminButton.Visibility = Visibility.Visible;
@@ -62,6 +73,7 @@ public partial class MainWindow : Window
         LoadOverlayUi();
         App.Overlay.Moved += () => Dispatcher.BeginInvoke(() => { _ovLoading = true; OvCorner.SelectedIndex = 4; _ovLoading = false; });
         _ready = true;
+        ApplyLayout();
 
         HandleCommandLine();
     }
@@ -566,4 +578,38 @@ public partial class MainWindow : Window
 
     void OnOverlayToggle(object sender, RoutedEventArgs e) => App.ToggleOverlay();
     void OnOverlayMove(object sender, RoutedEventArgs e) => App.Overlay.ToggleMove();
+
+    // ---------- Anpassung an kleine Fenster ----------
+    bool? _compact, _narrow;
+    bool _low;
+
+    /// <summary>Kompakt unter 1100 px Breite, sehr schmal unter 900 px: schmalere Navigation, weniger Spalten, kürzere Beschriftungen.</summary>
+    void ApplyLayout()
+    {
+        if (!IsInitialized || Tiles == null) return;
+        bool compact = ActualWidth < 1100, narrow = ActualWidth < 900;
+        bool low = ActualHeight < 660;
+        if (_compact == compact && _narrow == narrow && _low == low) return;
+        _low = low;
+        _compact = compact; _narrow = narrow;
+
+        NavCol.Width = new GridLength(narrow ? 136 : compact ? 150 : 210);
+        foreach (ListBoxItem it in Nav.Items) it.Padding = compact ? new Thickness(10, 7, 6, 7) : new Thickness(14, 10, 14, 10);
+        Nav.Margin = compact ? new Thickness(8, 10, 2, 8) : new Thickness(12, 14, 6, 12);
+        Tiles.Columns = compact ? 2 : 4;
+        PerfGrid.Columns = narrow ? 1 : 2;
+        OverlayBtn.Padding = RefreshBtn.Padding = AdminButton.Padding = compact ? new Thickness(9, 6, 9, 6) : new Thickness(14, 7, 14, 7);
+        RefreshBtn.Content = narrow ? "↻" : "Aktualisieren";
+        AdminButton.Content = compact ? "Als Admin" : "Als Administrator starten";
+        OsText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        StatusPill.Padding = compact ? new Thickness(10, 4, 10, 4) : new Thickness(16, 6, 16, 6);
+        ScopeGrid.MaxHeight = low ? 80 : compact ? 110 : 150;
+        DhcpSub.Visibility = low ? Visibility.Collapsed : Visibility.Visible;
+        if (SvcGrid.Columns.Count > 6)
+        {
+            SvcGrid.Columns[4].Visibility = compact ? Visibility.Collapsed : Visibility.Visible; // Konto
+            SvcGrid.Columns[5].Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;  // PID
+        }
+        if (ScopeGrid.Columns.Count > 3) ScopeGrid.Columns[3].Visibility = compact ? Visibility.Collapsed : Visibility.Visible; // Status
+    }
 }

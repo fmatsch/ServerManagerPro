@@ -14,7 +14,7 @@ Der **Task-Manager für Server**: CPU, Speicher, Prozesse und Dienste – plus d
 
 Alles fließt in eine Ampel und einen Gesundheitswert von 0–100 – jede Auffälligkeit mit Klartext-Begründung.
 
-Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (64 Bit). Seite mit Screenshots: <https://fmatsch.ist/ServerManagerPro/>
+Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (64 Bit), auch auf kleinen Bildschirmen: die Oberfläche passt sich an und funktioniert bis **1024×768** (Mindestgröße des Fensters 800×540). Seite mit Screenshots: <https://fmatsch.ist/ServerManagerPro/>
 
 ![Übersicht](docs/img/page0.png)
 

@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:c="clr-namespace:ServerManagerPro.Controls"
-        Title="ServerManagerPro" Width="1240" Height="800" MinWidth="980" MinHeight="620"
+        Title="ServerManagerPro" Width="1240" Height="800" MinWidth="800" MinHeight="540"
         Background="{StaticResource Bg}" FontFamily="Segoe UI" FontSize="13"
         UseLayoutRounding="True" WindowStartupLocation="CenterScreen">
     <Grid Background="{StaticResource Bg}">
@@ -15,22 +15,22 @@
         <Border Grid.Row="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="20,12">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*" MinWidth="120"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Orientation="Horizontal">
-                    <Image Source="app.ico" Width="40" Height="40" Margin="0,0,14,0"/>
+                <DockPanel MinWidth="0">
+                    <Image DockPanel.Dock="Left" Source="app.ico" Width="40" Height="40" Margin="0,0,14,0"/>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="HostText" FontSize="18" FontWeight="SemiBold" Text="…"/>
-                        <TextBlock x:Name="OsText" Style="{StaticResource Muted}" Text="…"/>
+                        <TextBlock x:Name="HostText" FontSize="18" FontWeight="SemiBold" Text="…" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="OsText" Style="{StaticResource Muted}" Text="…" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
-                </StackPanel>
+                </DockPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="AdminButton" Content="Als Administrator starten" Click="OnElevate" Visibility="Collapsed"
                             ToolTip="Für Dienste steuern, SMB-Clients und SQL-Leistungsindikatoren sind Administratorrechte nötig."/>
-                    <Button Content="Overlay" Click="OnOverlayToggle" ToolTip="Kennzahlen als dauerhaftes Overlay anzeigen (Strg+Alt+O)"/>
-                    <Button Content="Aktualisieren" Click="OnRefresh"/>
-                    <Border Background="{StaticResource Panel2}" CornerRadius="10" Padding="16,6" Margin="8,0,0,0">
+                    <Button x:Name="OverlayBtn" Content="Overlay" Click="OnOverlayToggle" ToolTip="Kennzahlen als dauerhaftes Overlay anzeigen (Strg+Alt+O)"/>
+                    <Button x:Name="RefreshBtn" Content="Aktualisieren" Click="OnRefresh"/>
+                    <Border x:Name="StatusPill" Background="{StaticResource Panel2}" CornerRadius="10" Padding="16,6" Margin="8,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <Ellipse x:Name="OverallDot" Style="{StaticResource Dot}" Width="14" Height="14" Fill="Gray" Margin="0,0,10,0"/>
                             <StackPanel>
@@ -45,13 +45,14 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="210"/>
+                <ColumnDefinition x:Name="NavCol" Width="210"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- Navigation -->
             <ListBox x:Name="Nav" Background="Transparent" BorderThickness="0" Margin="12,14,6,12"
-                     ItemContainerStyle="{StaticResource NavItem}" SelectionChanged="OnNav" SelectedIndex="0">
+                     ItemContainerStyle="{StaticResource NavItem}" SelectionChanged="OnNav" SelectedIndex="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBoxItem Content="Übersicht" Tag="PageOverview"/>
                 <ListBoxItem Content="Leistung" Tag="PagePerf"/>
                 <ListBoxItem Content="Prozesse" Tag="PageProcs"/>
@@ -61,7 +62,7 @@
                 <ListBoxItem Content="Clients" Tag="PageClients"/>
                 <ListBoxItem Content="Netzwerk" Tag="PageNet"/>
                 <ListBoxItem x:Name="NavAd" Content="Active Directory" Tag="PageAd" Visibility="Collapsed"/>
-                <ListBoxItem x:Name="NavDhcp" Content="DHCP &amp; IP-Adressen" Tag="PageDhcp" Visibility="Collapsed"/>
+                <ListBoxItem x:Name="NavDhcp" Content="DHCP &amp; IPs" Tag="PageDhcp" Visibility="Collapsed"/>
                 <ListBoxItem Content="Ereignisse" Tag="PageEvents"/>
                 <ListBoxItem Content="Einstellungen" Tag="PageSettings"/>
             </ListBox>
@@ -71,7 +72,7 @@
                 <!-- 0: Übersicht -->
                 <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <UniformGrid Columns="4">
+                        <UniformGrid x:Name="Tiles" Columns="4">
                             <Border Style="{StaticResource Card}">
                                 <StackPanel>
                                     <TextBlock Text="Prozessor" Style="{StaticResource Muted}"/>
@@ -121,7 +122,7 @@
                                                         <Grid Margin="0,4">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="22"/>
-                                                                <ColumnDefinition Width="230"/>
+                                                                <ColumnDefinition Width="200"/>
                                                                 <ColumnDefinition Width="*"/>
                                                             </Grid.ColumnDefinitions>
                                                             <Ellipse Style="{StaticResource Dot}" Width="8" Height="8" HorizontalAlignment="Left"
@@ -143,7 +144,7 @@
                 <!-- 1: Leistung -->
                 <ScrollViewer x:Name="PagePerf" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel>
-                        <UniformGrid Columns="2">
+                        <UniformGrid x:Name="PerfGrid" Columns="2">
                             <Border Style="{StaticResource Card}">
                                 <StackPanel>
                                     <DockPanel><TextBlock Text="CPU" FontWeight="SemiBold" FontSize="15"/><TextBlock x:Name="PerfCpuText" DockPanel.Dock="Right" HorizontalAlignment="Right"/></DockPanel>
@@ -179,11 +180,11 @@
                                 <TextBlock Text="Logische Prozessoren" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,8"/>
                                 <ItemsControl x:Name="CoreList">
                                     <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate><UniformGrid Columns="8"/></ItemsPanelTemplate>
+                                        <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Margin="0,0,10,8">
+                                            <StackPanel Margin="0,0,10,8" Width="104">
                                                 <TextBlock Text="{Binding Label}" Style="{StaticResource Muted}" FontSize="11"/>
                                                 <ProgressBar Value="{Binding Value}" Maximum="100" Height="8" Background="#0E1620" BorderThickness="0"
                                                              Foreground="{Binding Value, Converter={StaticResource PctBrush}}"/>
@@ -252,7 +253,7 @@
                     <DataGrid x:Name="SvcGrid">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Anzeigename" Binding="{Binding DisplayName}" Width="2*"/>
-                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.3*"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.3*" MinWidth="90"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="100">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -483,18 +484,18 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
-                    <DataGrid x:Name="ScopeGrid" DockPanel.Dock="Top" MaxHeight="190" Margin="0,0,12,10" SelectionChanged="OnScopeSelected">
+                    <DataGrid x:Name="ScopeGrid" DockPanel.Dock="Top" MaxHeight="150" Margin="0,0,12,10" SelectionChanged="OnScopeSelected">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Bereich" Binding="{Binding ScopeId}" Width="130"/>
+                            <DataGridTextColumn Header="Bereich" Binding="{Binding ScopeId}" Width="120"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="1.3*"/>
-                            <DataGridTextColumn Header="Adressen" Binding="{Binding Range}" Width="2.2*"/>
+                            <DataGridTextColumn Header="Adressen" Binding="{Binding Range}" Width="2.2*" MinWidth="150"/>
                             <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="80"/>
-                            <DataGridTextColumn Header="Gesamt" Binding="{Binding Total}" Width="70"/>
-                            <DataGridTextColumn Header="Vergeben" Binding="{Binding Leased}" Width="80"/>
-                            <DataGridTextColumn Header="Reserviert" Binding="{Binding Reserved}" Width="85"/>
-                            <DataGridTextColumn Header="Laut DHCP frei" Binding="{Binding ServerFree}" Width="105"/>
-                            <DataGridTextColumn Header="Konflikte" Binding="{Binding Conflicts}" Width="80"/>
-                            <DataGridTextColumn Header="Wirklich frei" Binding="{Binding ReallyFree}" Width="100"/>
+                            <DataGridTextColumn Header="Gesamt" Binding="{Binding Total}" Width="65"/>
+                            <DataGridTextColumn Header="Vergeben" Binding="{Binding Leased}" Width="75"/>
+                            <DataGridTextColumn Header="Reserviert" Binding="{Binding Reserved}" Width="80"/>
+                            <DataGridTextColumn Header="DHCP frei" Binding="{Binding ServerFree}" Width="80"/>
+                            <DataGridTextColumn Header="Konflikte" Binding="{Binding Conflicts}" Width="75"/>
+                            <DataGridTextColumn Header="Wirklich frei" Binding="{Binding ReallyFree}" Width="95"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
