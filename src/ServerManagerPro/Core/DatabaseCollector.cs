@@ -79,7 +79,12 @@ public sealed class DatabaseCollector
                 db.Ports = string.Join(", ", listen.OrderBy(x => x).Take(4));
 
                 if (engine == "SQL Server") CollectSql(db, s.Name, cfg, ref backupRunning);
-                else db.Status = db.Cpu >= cfg.CpuWarn ? Health.Warning : Health.Ok;
+                else
+                {
+                    db.Status = db.Cpu >= cfg.CpuWarn ? Health.Warning : Health.Ok;
+                    DbExtra.Enrich(db, s.Name, cfg);
+                    foreach (var d in db.Databases) if (d.BackupThroughput > 0) backupRunning = true;
+                }
             }
             else
             {

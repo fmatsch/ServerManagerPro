@@ -16,6 +16,13 @@ public sealed class HealthMonitor : IDisposable
     (AdInfo info, List<CheckResult> checks)? _ad;
     DateTime _adAt = DateTime.MinValue;
     public bool Demo { get; set; }
+
+    // Zusatzprüfungen (Sicherheit, Hardware, Rollen): langsam, im Hintergrund, alle 5 Minuten
+    readonly object _extraLock = new();
+    (List<DetailSection> sections, List<CheckResult> checks) _extra = (new(), new());
+    DateTime _extraAt = DateTime.MinValue;
+    volatile bool _extraRunning, _extraDone;
+    public bool ExtraReady => _extraDone;
     readonly Queue<MetricsSnapshot> _recent = new();
     readonly CancellationTokenSource _cts = new();
     List<ProcRecord> _lastProcs = new();
@@ -139,8 +146,31 @@ public sealed class HealthMonitor : IDisposable
         if (dsvc != null)
         {
             var d = Guard("DHCP", () => _dhcp.Collect(dsvc.IsRunning), ((DhcpInfo info, List<CheckResult> checks)?)null);
-            if (d != null) { snap.Dhcp = d.Value.info; snap.Checks.AddRange(d.Value.checks); }
+            if (d != null) { snap.Dhcp = d.Value.info; snap.Checks.AddRange(d.Value.checks); snap.Sections.AddRange(d.Value.info.Sections); }
         }
+
+        if (!_extraRunning && (_forceSlow || (DateTime.Now - _extraAt).TotalSeconds > 300))
+        {
+            _extraRunning = true;
+            _extraAt = DateTime.Now;
+            var sv = services; var tc = tcp; var pr = procs;
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    var sections = new List<DetailSection>(); var checks = new List<CheckResult>();
+                    void Add((List<DetailSection> s, List<CheckResult> c) r) { sections.AddRange(r.s); checks.AddRange(r.c); }
+                    try { Add(SecurityCollector.Collect(sv, tc, pr, Settings)); } catch (Exception ex) { checks.Add(new("Sicherheit", "Messung fehlgeschlagen", Health.Unknown, ex.GetBaseException().Message)); }
+                    try { Add(HardwareCollector.Collect(Settings)); } catch (Exception ex) { checks.Add(new("Hardware", "Messung fehlgeschlagen", Health.Unknown, ex.GetBaseException().Message)); }
+                    try { Add(RoleCollector.Collect(sv, Settings)); } catch (Exception ex) { checks.Add(new("Rollen", "Messung fehlgeschlagen", Health.Unknown, ex.GetBaseException().Message)); }
+                    lock (_extraLock) _extra = (sections, checks);
+                    _extraDone = true;
+                }
+                catch { }
+                finally { _extraRunning = false; }
+            });
+        }
+        lock (_extraLock) { snap.Sections.AddRange(_extra.sections); snap.Checks.AddRange(_extra.checks); }
 
         if (Demo) DemoData.Apply(snap);
 

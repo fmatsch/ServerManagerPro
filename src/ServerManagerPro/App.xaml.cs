@@ -178,6 +178,10 @@ public partial class App : Application
     {
         var sb = new StringBuilder();
         using var mon = new HealthMonitor(AppSettings.Load());
+        var rt = new AppSettings { DbConnections = new() { "mysql||Server=x;Password=geheim" } };
+        string json = System.Text.Json.JsonSerializer.Serialize(rt);
+        var back = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json)!;
+        sb.AppendLine($"Einstellungen verschlüsselt gespeichert: {(!json.Contains("geheim") && back.DbConnections.SequenceEqual(rt.DbConnections) ? "OK" : "FEHLER")}");
         var sw = Stopwatch.StartNew();
         mon.FastOnce();
         Thread.Sleep(1500);
@@ -192,11 +196,19 @@ public partial class App : Application
         sb.AppendLine($"Messzyklus nur Leistung (Overlay): {sw3.ElapsedMilliseconds / 10.0:0} ms");
         mon.NeedProcesses = true;
         var s = mon.HealthOnce();
+        for (int w = 0; w < 120 && !mon.ExtraReady; w++) Thread.Sleep(1000); // Zusatzprüfungen laufen im Hintergrund
+        s = mon.HealthOnce();
         sb.AppendLine($"Admin: {s.IsAdmin} | Gesundheit: {HealthMonitor.Score(s.Checks)} ({HealthMonitor.Overall(s.Checks)}) | {sw.ElapsedMilliseconds} ms");
         foreach (var g in s.Checks.GroupBy(c => c.Category))
         {
             sb.AppendLine($"\n[{g.Key}]");
             foreach (var c in g) sb.AppendLine($"  {c.Status,-9} {c.Name}: {c.Detail}");
+        }
+        foreach (var sec in s.Sections)
+        {
+            sb.AppendLine($"\n<{sec.Group}> {sec.Title} [{sec.Status}]");
+            sb.AppendLine("  " + string.Join(" | ", sec.Headers));
+            foreach (var r in sec.Rows.Take(6)) sb.AppendLine("  " + string.Join(" | ", r));
         }
         sb.AppendLine($"\nDatenbanken: {s.Databases.Count} | Sicherungen: {s.Backups.Count} | Aufgaben: {s.Tasks.Count} | Sitzungen: {s.Sessions.Count} | Ereignisse: {s.Events.Count}");
         File.WriteAllText(path, sb.ToString());

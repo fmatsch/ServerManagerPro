@@ -10,6 +10,8 @@ Der **Task-Manager für Server**: CPU, Speicher, Prozesse und Dienste – plus d
 - Auf **Domänencontrollern**: Zustand von Active Directory (Dienste, Replikation, Betriebsmaster, Benutzer, gesperrte Konten).
 - Auf **DHCP-Servern**: Bereiche, Leases und ein IP-Scan, der zeigt, welche Adressen *wirklich* vergeben werden können.
 - **Overlay:** frei gewählte Kennzahlen als kleines, klickdurchlässiges Fenster dauerhaft im Vordergrund – wie ein FPS-Overlay.
+- **Sicherheit & Hardware:** ausstehende Updates, Virenschutz, Firewall, Zertifikats-Ablauf, offene Ports, Datenträger-Verschleiß und -Temperatur, USV.
+- **Rollen:** Hyper-V, IIS, Druckserver, Dateiserver-Kontingente, Exchange, DFS.
 - Dazu: Laufwerke, Datenträger-Zustand, ausstehender Neustart, Fehler im Ereignisprotokoll.
 
 Alles fließt in eine Ampel und einen Gesundheitswert von 0–100 – jede Auffälligkeit mit Klartext-Begründung.
@@ -46,6 +48,9 @@ Ein kleines Fenster über allem anderen mit den Kennzahlen, die Sie unter *Einst
 | Netzwerk | `GetExtendedTcpTable` mit Prozessnamen; Einteilung nach privaten Adressbereichen (RFC 1918, Link-Local, CGNAT), Loopback, Internet |
 | Active Directory | Dienste (NTDS, KDC …), SYSVOL/NETLOGON, `System.DirectoryServices` (Konten, FSMO, Replikation); nur wenn der Dienst NTDS existiert |
 | DHCP | PowerShell-Cmdlets `Get-DhcpServerv4*` (Bereiche, Leases, Reservierungen, Ausschlüsse) + IP-Scan per Ping und ARP; nur wenn der Dienst DHCPServer existiert |
+| Sicherheit | Update-Verlauf und ausstehende Updates (Windows-Update-Agent, nur Daten des letzten Scans), Microsoft Defender, Windows-Firewall (Profile), BitLocker, Zertifikate (Ablauf), Ports auf allen Netzwerkkarten |
+| Hardware | Datenträger-Zustand, Temperatur, Verschleiß, unkorrigierte Lesefehler (Storage-Zuverlässigkeitszähler), SMART-Vorhersage, Speicherplätze, ACPI-Temperaturen, USV/Batterie |
+| Rollen | Hyper-V (VMs, Checkpoints, Replikation, Heartbeat), IIS (Websites, Pools, HTTPS-Zertifikate), Druckwarteschlangen, FSRM-Kontingente, Exchange-Dienste und Mailwarteschlange, DFS-Replikation |
 | Clients | Terminaldienste (WTS), `MSFT_SmbSession`, `GetExtendedTcpTable` |
 | System | Laufzeit, Neustart ausstehend, Laufwerke, `MSFT_PhysicalDisk` |
 | Ereignisse | System- und Anwendungsprotokoll der letzten 24 h |
@@ -53,6 +58,13 @@ Ein kleines Fenster über allem anderen mit den Kennzahlen, die Sie unter *Einst
 Schwellenwerte, zusätzliche Dienste und Backup-Stichwörter stehen unter *Einstellungen* und in `C:\ProgramData\ServerManagerPro\settings.json`.
 
 ## Grenzen
+
+- **Nicht auf echten Systemen geprüft** (nur gegen die Windows-Schnittstellen entwickelt): Hyper-V, IIS, Druckserver, FSRM, Exchange, DFS, die PostgreSQL-/MySQL-Detailwerte, DHCP-Failover und -IPv6 sowie die Zertifikatsliste. Auf dem Testrechner waren diese Rollen bzw. Zertifikate nicht vorhanden. Über Fehlerberichte freue ich mich.
+- **PostgreSQL/MySQL-Details** brauchen eine Verbindung (*Einstellungen → Datenbank-Verbindungen*), am besten mit einem Benutzer, der nur lesen darf. Die Verbindungszeichenfolge wird mit Windows-DPAPI verschlüsselt (Computer-Schlüssel: schützt vor dem Lesen der Datei, nicht vor anderen Benutzern auf demselben Computer).
+- **Ports:** Es wird nur angezeigt, was auf allen Netzwerkkarten lauscht. Ob ein Port aus dem Internet erreichbar ist, wird nicht geprüft.
+- **Hardware:** Temperatur, Verschleiß und SMART liefert Windows nur für manche Datenträger/Treiber und teils nur mit Administratorrechten. Lüfter, RAID-Controller und iDRAC/iLO (Redfish) werden nicht abgefragt.
+- **Updates:** Die Zahl ausstehender Updates stammt aus dem letzten Scan von Windows; die App löst keine Suche im Netz aus.
+- **MAC-Herkunft:** Es werden nur zufällige/lokale Adressen und bekannte virtuelle Adapter erkannt, keine vollständige Herstellerliste.
 
 - Active-Directory- und DHCP-Seiten sind nur mit Beispieldaten (`--demo`) auf einem normalen PC getestet, nicht auf einem echten Domänencontroller/DHCP-Server. Fehlerberichte willkommen.
 - Der IP-Scan prüft im eigenen Subnetz per ARP (findet auch Geräte mit blockiertem Ping), in anderen Subnetzen nur per Ping. Pro Bereich werden höchstens 4096 Adressen betrachtet; der Scan läuft alle 10 Minuten oder per Knopf.

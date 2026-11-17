@@ -26,6 +26,21 @@ static class DemoData
         s.Checks.Add(new("Active Directory", "Benutzerkonten", Health.Ok, "171 aktiv, 13 deaktiviert, 96 Computerkonten, 142 Gruppen."));
         s.Checks.Add(new("Active Directory", "Gesperrte Konten", Health.Warning, "1 Konto/Konten sind gerade gesperrt."));
 
+        // Beispiele für die Seite "Sicherheit & Rollen"
+        s.Sections.RemoveAll(x => x.Title == "Windows-Updates");
+        var up = new DetailSection { Group = "Sicherheit", Title = "Windows-Updates", Headers = new[] { "Eigenschaft", "Wert" }, Status = Health.Warning };
+        up.Add("Letzte Suche nach Updates", DateTime.Now.AddHours(-5).ToString("g")); up.Add("Letzte erfolgreiche Installation", DateTime.Now.AddDays(-52).ToString("g")); up.Add("Ausstehende Updates (laut letztem Scan)", "6, davon 2 wichtig/kritisch");
+        s.Sections.Add(up);
+        var cert = new DetailSection { Group = "Sicherheit", Title = "Zertifikate (lokaler Computer)", Headers = new[] { "Name", "Speicher", "Gültig bis", "Verbleibend", "Aussteller", "ID" }, Status = Health.Warning };
+        cert.Add("mail.firma.example", "My", DateTime.Now.AddDays(12).ToString("d"), "12 Tage", "R3", "A1B2C3D4"); cert.Add("DC01.firma.example", "My", DateTime.Now.AddDays(311).ToString("d"), "311 Tage", "firma-CA", "5F6E7D8C"); cert.Add("DC01", "Remote Desktop", DateTime.Now.AddDays(160).ToString("d"), "160 Tage", "DC01", "9A8B7C6D");
+        s.Sections.Add(cert);
+        var vm = new DetailSection { Group = "Hyper-V", Title = "Virtuelle Maschinen", Headers = new[] { "VM", "Zustand", "Status", "CPU %", "RAM (MB)", "Laufzeit", "Replikation", "Checkpoints", "Heartbeat" }, Status = Health.Warning };
+        vm.Add("SRV-FILE01", "Running", "Operating normally", "4", "8192", "412,3 h", "Normal", "0", "OkApplicationsHealthy"); vm.Add("SRV-SQL01", "Running", "Operating normally", "22", "32768", "412,1 h", "Normal", "3", "OkApplicationsHealthy"); vm.Add("SRV-TEST", "Off", "Operating normally", "–", "4096", "–", "–", "1", "–");
+        s.Sections.Add(vm);
+        s.Checks.Add(new("Sicherheit", "Letzte Update-Installation", Health.Warning, "Vor 52 Tagen."));
+        s.Checks.Add(new("Sicherheit", "Zertifikate", Health.Warning, "1 Zertifikat(e) laufen bald ab: mail.firma.example (12 T)"));
+        s.Checks.Add(new("Hyper-V", "Virtuelle Maschinen", Health.Warning, "SRV-SQL01: 3 Checkpoints."));
+
         var d2 = new DhcpInfo { Demo = true, ServiceRunning = true, ScanTime = DateTime.Now.AddMinutes(-2) };
         var rnd = new Random(7);
         void Scope(string id, string name, uint start, uint end, int excl, int leased, int reserved, int conflicts, int declined)

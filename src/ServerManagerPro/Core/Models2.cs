@@ -72,6 +72,18 @@ public sealed class IpRow
     public bool Alive { get; set; }
 }
 
+/// <summary>Allgemeine Detailtabelle für die Seite „Sicherheit &amp; Rollen“.</summary>
+public sealed class DetailSection
+{
+    public string Group { get; set; } = "";
+    public string Title { get; set; } = "";
+    public Health Status { get; set; } = Health.Ok;
+    public string Note { get; set; } = "";
+    public string[] Headers { get; set; } = Array.Empty<string>();
+    public List<string[]> Rows { get; } = new();
+    public DetailSection Add(params string[] cells) { Rows.Add(cells); return this; }
+}
+
 public sealed class DhcpInfo
 {
     public bool ServiceRunning { get; set; }
@@ -81,5 +93,6 @@ public sealed class DhcpInfo
     public string ScanProgress { get; set; } = "";
     public List<DhcpScopeRow> Scopes { get; } = new();
     public List<IpRow> Addresses { get; } = new();
+    public List<DetailSection> Sections { get; } = new();
     public bool Demo { get; set; }
 }

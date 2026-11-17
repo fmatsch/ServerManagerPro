@@ -61,6 +61,7 @@
                 <ListBoxItem Content="Sicherung" Tag="PageBackup"/>
                 <ListBoxItem Content="Clients" Tag="PageClients"/>
                 <ListBoxItem Content="Netzwerk" Tag="PageNet"/>
+                <ListBoxItem Content="Sicherheit &amp; Rollen" Tag="PageDetails"/>
                 <ListBoxItem x:Name="NavAd" Content="Active Directory" Tag="PageAd" Visibility="Collapsed"/>
                 <ListBoxItem x:Name="NavDhcp" Content="DHCP &amp; IPs" Tag="PageDhcp" Visibility="Collapsed"/>
                 <ListBoxItem Content="Ereignisse" Tag="PageEvents"/>
@@ -425,6 +426,11 @@
                     </DataGrid>
                 </DockPanel>
 
+                <!-- Sicherheit & Rollen -->
+                <ScrollViewer x:Name="PageDetails" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel x:Name="DetailPanel"/>
+                </ScrollViewer>
+
                 <!-- Active Directory -->
                 <ScrollViewer x:Name="PageAd" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
                     <StackPanel>
@@ -626,6 +632,10 @@
                                 <TextBox x:Name="SWatched" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto"/>
                                 <TextBlock Text="Weitere Datenbank-Dienste (Muster mit * erlaubt, einer pro Zeile)" FontWeight="SemiBold" Margin="0,12,0,6"/>
                                 <TextBox x:Name="SDbExtra" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"/>
+                                <TextBlock Text="Datenbank-Verbindungen für Detailwerte (einer pro Zeile)" FontWeight="SemiBold" Margin="0,12,0,2"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,6"
+                                           Text="Format: postgresql|Dienstname-Teil|Host=localhost;Username=monitor;Password=…   oder   mysql||Server=localhost;User ID=monitor;Password=…   – am besten ein Benutzer nur mit Leserechten. Wird verschlüsselt (Windows-DPAPI) gespeichert."/>
+                                <TextBox x:Name="SDbConn" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"/>
                                 <TextBlock Text="Weitere Stichwörter für Sicherungsaufgaben (einer pro Zeile)" FontWeight="SemiBold" Margin="0,12,0,6"/>
                                 <TextBox x:Name="SBackupWords" AcceptsReturn="True" Height="60" VerticalScrollBarVisibility="Auto"/>
                             </StackPanel>

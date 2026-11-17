@@ -146,6 +146,17 @@ public static class Native
 
     static int Port(int raw) => ((raw & 0xFF) << 8) | ((raw >> 8) & 0xFF);
 
+    public static bool IsAccessDenied(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e is UnauthorizedAccessException) return true;
+            if (e is System.Management.ManagementException me && me.ErrorCode == System.Management.ManagementStatus.AccessDenied) return true;
+            if (e.Message.Contains("Access denied", StringComparison.OrdinalIgnoreCase) || e.Message.Contains("Zugriff verweigert", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+
     public static bool IsAdmin()
     {
         using var id = System.Security.Principal.WindowsIdentity.GetCurrent();

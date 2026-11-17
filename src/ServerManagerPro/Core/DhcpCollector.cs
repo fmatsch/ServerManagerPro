@@ -26,6 +26,7 @@ public sealed class DhcpCollector
     RawScope[] _raw = Array.Empty<RawScope>();
     DateTime _fetchAt = DateTime.MinValue, _scanAt = DateTime.MinValue;
     string _error = "";
+    List<string[]> _failover = new(), _v6 = new();
     volatile bool _scanning, _force;
     int _scanDone, _scanTotal;
     ConcurrentDictionary<uint, string> _alive = new();   // IP → MAC ("" = nur Ping)
@@ -79,6 +80,32 @@ public sealed class DhcpCollector
         }
         Build(info);
 
+        if (_failover.Count > 0)
+        {
+            var fo = new DetailSection { Group = "DHCP", Title = "DHCP-Failover", Headers = new[] { "Beziehung", "Partner", "Modus", "Zustand", "Rolle", "Bereiche" } };
+            foreach (var f in _failover)
+            {
+                fo.Rows.Add(f);
+                bool normal = f[3].Equals("Normal", StringComparison.OrdinalIgnoreCase);
+                bool broken = f[3].Contains("Interrupted", StringComparison.OrdinalIgnoreCase) || f[3].Contains("Down", StringComparison.OrdinalIgnoreCase);
+                var st = normal ? Health.Ok : broken ? Health.Critical : Health.Warning;
+                fo.Status = HealthExt.Worst(fo.Status, st);
+                checks.Add(new CheckResult(Cat, $"Failover {f[0]}", st, normal ? $"Normal, Partner {f[1]} ({f[2]})." : $"Zustand {f[3]} mit Partner {f[1]}."));
+            }
+            info.Sections.Add(fo);
+        }
+        if (_v6.Count > 0)
+        {
+            var v6 = new DetailSection { Group = "DHCP", Title = "DHCP IPv6-Bereiche", Headers = new[] { "Präfix", "Name", "Status", "Vergeben", "Frei", "Auslastung %" } };
+            foreach (var v in _v6)
+            {
+                v6.Rows.Add(v);
+                if (double.TryParse(v[5], System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var pct) && pct >= 90)
+                { v6.Status = Health.Warning; checks.Add(new CheckResult(Cat, $"IPv6 {v[0]}", Health.Warning, $"{pct:0} % des IPv6-Bereichs sind belegt.")); }
+            }
+            info.Sections.Add(v6);
+        }
+
         foreach (var s in info.Scopes)
         {
             if (!s.State.Equals("Active", StringComparison.OrdinalIgnoreCase))
@@ -110,10 +137,12 @@ foreach($sc in @(Get-DhcpServerv4Scope)){
   $re=@(Get-DhcpServerv4Reservation -ScopeId $id -ErrorAction SilentlyContinue | ForEach-Object { [pscustomobject]@{Ip=$_.IPAddress.ToString();Mac=[string]$_.ClientId;Name=[string]$_.Name} })
   $out+=[pscustomobject]@{ScopeId=$id.ToString();Name=[string]$sc.Name;Start=$sc.StartRange.ToString();End=$sc.EndRange.ToString();Mask=$sc.SubnetMask.ToString();State=[string]$sc.State;Excl=$ex;Leases=$le;Res=$re}
 }
-ConvertTo-Json -InputObject @($out) -Depth 5 -Compress
+$fo=@(); try { $fo=@(Get-DhcpServerv4Failover -ErrorAction Stop | ForEach-Object { [pscustomobject]@{Name=[string]$_.Name;Partner=[string]$_.PartnerServer;Mode=[string]$_.Mode;State=[string]$_.State;Role=[string]$_.ServerRole;Scopes=(@($_.ScopeId) -join ',')} }) } catch {}
+$v6=@(); try { $v6=@(Get-DhcpServerv6Scope -ErrorAction Stop | ForEach-Object { $st=Get-DhcpServerv6ScopeStatistics -Prefix $_.Prefix; [pscustomobject]@{Prefix=[string]$_.Prefix;Name=[string]$_.Name;State=[string]$_.State;InUse=[double]$st.InUse;Free=[double]$st.Free;Pct=[double]$st.PercentageInUse} }) } catch {}
+ConvertTo-Json -InputObject @{Scopes=@($out);Failover=$fo;V6=$v6} -Depth 5 -Compress
 ";
 
-    static RawScope[] Fetch()
+    RawScope[] Fetch()
     {
         var psi = new ProcessStartInfo("powershell.exe",
             "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(Script)))
@@ -133,7 +162,10 @@ ConvertTo-Json -InputObject @($out) -Depth 5 -Compress
         }
         using var doc = JsonDocument.Parse(json);
         var res = new List<RawScope>();
-        foreach (var sc in Items(doc.RootElement))
+        var top = doc.RootElement;
+        _failover = Items(top.GetProperty("Failover")).Select(f => new[] { S(f, "Name"), S(f, "Partner"), S(f, "Mode"), S(f, "State"), S(f, "Role"), S(f, "Scopes") }).ToList();
+        _v6 = Items(top.GetProperty("V6")).Select(v => new[] { S(v, "Prefix"), S(v, "Name"), S(v, "State"), S(v, "InUse"), S(v, "Free"), S(v, "Pct") }).ToList();
+        foreach (var sc in Items(top.GetProperty("Scopes")))
         {
             res.Add(new RawScope(S(sc, "ScopeId"), S(sc, "Name"), U(S(sc, "Start")), U(S(sc, "End")), S(sc, "Mask"), S(sc, "State"),
                 Items(sc.GetProperty("Excl")).Select(x => (U(S(x, "S")), U(S(x, "E")))).ToList(),
@@ -322,6 +354,11 @@ ConvertTo-Json -InputObject @($out) -Depth 5 -Compress
                         r.Status = "Frei";
                         r.Detail = scanned ? "Laut DHCP frei und im Scan ohne Antwort" : "Laut DHCP frei (Scan läuft noch)";
                     }
+                }
+                if (r.Mac.Length > 0)
+                {
+                    var vendor = MacVendor.Lookup(r.Mac);
+                    if (vendor.Length > 0) r.Detail = r.Detail.Length > 0 ? r.Detail + " · " + vendor : vendor;
                 }
                 info.Addresses.Add(r);
             }

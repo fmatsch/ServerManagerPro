@@ -1,4 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ServerManagerPro.Core;
 
@@ -20,6 +23,32 @@ public sealed class AppSettings
     public List<string> ExtraDatabaseServices { get; set; } = new();
     /// <summary>Zusätzliche Stichwörter, an denen Backup-Aufgaben erkannt werden.</summary>
     public List<string> ExtraBackupKeywords { get; set; } = new();
+
+    /// <summary>
+    /// Optionale Verbindungen für Detailwerte (eine pro Zeile): "postgresql|Dienstname-Teil|Host=localhost;Username=monitor;Password=…"
+    /// oder "mysql|…|Server=localhost;User ID=monitor;Password=…". Im Speicher im Klartext, in der Datei mit Windows-DPAPI verschlüsselt.
+    /// </summary>
+    [JsonIgnore] public List<string> DbConnections { get; set; } = new();
+
+    public string DbConnectionsProtected
+    {
+        get
+        {
+            if (DbConnections.Count == 0) return "";
+            var enc = ProtectedData.Protect(Encoding.UTF8.GetBytes(string.Join("\n", DbConnections)), null, DataProtectionScope.LocalMachine);
+            return Convert.ToBase64String(enc);
+        }
+        set
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(value)) { DbConnections = new(); return; }
+                var raw = ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.LocalMachine);
+                DbConnections = Encoding.UTF8.GetString(raw).Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+            }
+            catch { DbConnections = new(); }
+        }
+    }
 
     // ---- Overlay ----
     public bool OverlayOnStart { get; set; }

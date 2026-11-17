@@ -134,6 +134,9 @@
     <tr><td>Netzwerk</td><td>TCP-Tabelle + Prozesse</td><td>Alle Verbindungen mit Prozess, getrennt nach <b>lokalem Netz (LAN)</b>, <b>Internet</b>, Loopback und lauschenden Ports – umschaltbar und filterbar.</td></tr>
     <tr><td>Active Directory</td><td>nur auf Domänencontrollern</td><td>Zustand der Domänendienste (NTDS, KDC, DNS, DFSR …), SYSVOL/NETLOGON, Replikation, Betriebsmaster, Benutzer (aktiv, deaktiviert, gesperrt, inaktiv), Computer, Gruppen, Domänen-Admins.</td></tr>
     <tr><td>DHCP</td><td>nur auf DHCP-Servern</td><td>Bereiche, Leases, Reservierungen und ein <b>IP-Scan (Ping + ARP)</b>: zeigt, welche Adressen wirklich vergeben werden können und welche trotz „frei“ im DHCP antworten (Konflikte).</td></tr>
+    <tr><td>Sicherheit</td><td>Windows-Update-Agent, Defender, Registry, Zertifikatsspeicher</td><td>Letzte Update-Installation und ausstehende Updates, Virenschutz-Zustand, Firewall-Profile, BitLocker, <b>ablaufende Zertifikate</b>, Ports, die auf allen Netzwerkkarten lauschen.</td></tr>
+    <tr><td>Hardware</td><td>Storage-Zähler, ACPI, Batterie</td><td>Datenträger-Zustand, Temperatur, <b>Verschleiß</b> von SSDs, Lesefehler, SMART-Vorhersage, Speicherplätze, USV im Akkubetrieb.</td></tr>
+    <tr><td>Rollen</td><td>nur wenn die Rolle vorhanden ist</td><td><b>Hyper-V</b> (VMs, Checkpoints, Replikation), <b>IIS</b> (Websites, Pools, HTTPS-Zertifikate), Druckwarteschlangen, FSRM-Kontingente, Exchange, DFS-Replikation.</td></tr>
     <tr><td>Clients</td><td>Terminaldienste, SMB, TCP</td><td>Wer ist per Remotedesktop angemeldet (aktiv/getrennt), welche Rechner greifen per SMB auf Freigaben zu, wie viele TCP-Verbindungen bestehen.</td></tr>
     <tr><td>System</td><td>Registry, Speicher, Storage-WMI</td><td>Laufzeit, ausstehender Neustart, freier Platz je Laufwerk, Zustand der physischen Datenträger.</td></tr>
     <tr><td>Ereignisse</td><td>Ereignisprotokolle</td><td>Fehler und Warnungen der letzten 24 Stunden aus System und Anwendungen, mit Schwellenwerten.</td></tr>
@@ -142,6 +145,7 @@
   <h2>Oberfläche</h2>
   <div class="shots">
     <figure class="shot"><img src="img/page1.png" alt="Leistung" loading="lazy"><figcaption>Leistung mit Verlauf und Kernen</figcaption></figure>
+    <figure class="shot"><img src="img/sicherheit.png" alt="Sicherheit und Rollen" loading="lazy"><figcaption>Sicherheit &amp; Rollen (mit Beispieldaten)</figcaption></figure>
     <figure class="shot"><img src="img/klein-1024.png" alt="Kompakte Ansicht bei 1024×768" loading="lazy"><figcaption>Kompakte Ansicht bei 1024×768</figcaption></figure>
     <figure class="shot"><img src="img/page3.png" alt="Dienste" loading="lazy"><figcaption>Dienste durchsuchen und steuern</figcaption></figure>
     <figure class="shot"><img src="img/page5.png" alt="Sicherung" loading="lazy"><figcaption>Sicherung: läuft, letzter Erfolg, Aufgaben</figcaption></figure>
@@ -168,6 +172,7 @@
   <div class="note"><p><b>Ohne Administratorrechte</b> fehlen einige Werte: SMB-Clients, SQL-Server-Leistungsindikatoren, manche geplante Aufgaben und das Steuern von Diensten. Die App zeigt das an und läuft trotzdem.</p></div>
   <ul class="plain" style="margin-top:16px">
     <li><b>Overlay:</b> Es erscheint über Fenstern und randlosen Vollbild-Anwendungen, aber nicht über Spielen oder Programmen im exklusiven Vollbildmodus.</li>
+    <li><b>Noch nicht an echten Systemen geprüft:</b> Hyper-V, IIS, Druckserver, FSRM, Exchange, DFS, PostgreSQL-/MySQL-Details, DHCP-Failover/IPv6. PostgreSQL und MySQL zeigen Detailwerte nur, wenn Sie in den Einstellungen eine Verbindung (am besten mit Leserechten) hinterlegen.</li>
     <li><b>Active Directory und DHCP</b> erscheinen nur, wenn die Rolle auf dem Rechner läuft. Die Screenshots dazu zeigen Beispieldaten. Der DHCP-Abgleich nutzt die DHCP-Cmdlets (Rolle bzw. RSAT-Modul <code>DhcpServer</code>) und braucht Leserechte.</li>
     <li><b>IP-Scan:</b> Im eigenen Subnetz wird per ARP geprüft (findet auch Geräte, die Ping blockieren), in anderen Subnetzen nur per Ping. Ein Gerät mit blockiertem Ping hinter einem Router bleibt dort unentdeckt.</li>
     <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>

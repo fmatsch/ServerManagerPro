@@ -389,7 +389,7 @@ public partial class MainWindow : Window
     }
 
     // ---------- Gesundheit ----------
-    static readonly string[] Order = { "Leistung", "System", "Dienste", "Datenbanken", "Sicherung", "Clients", "Ereignisse" };
+    static readonly string[] Order = { "Leistung", "System", "Sicherheit", "Hardware", "Dienste", "Datenbanken", "Sicherung", "Clients", "Active Directory", "DHCP", "Hyper-V", "IIS", "Druckserver", "Dateiserver", "Exchange", "DFS", "Ereignisse" };
 
     void OnHealth(Snapshot s)
     {
@@ -432,6 +432,7 @@ public partial class MainWindow : Window
         AddFact(NetFacts, "Lauschende Ports", _conns.Count(c => c.Scope == NetworkCollector.ScopeListen).ToString());
         ApplyNet();
         FillAd(s.Ad);
+        RenderSections(s.Sections);
         FillDhcp(s);
 
         // Datenbanken
@@ -480,6 +481,7 @@ public partial class MainWindow : Window
         SWatched.Text = string.Join(Environment.NewLine, _cfg.WatchedServices);
         SDbExtra.Text = string.Join(Environment.NewLine, _cfg.ExtraDatabaseServices);
         SBackupWords.Text = string.Join(Environment.NewLine, _cfg.ExtraBackupKeywords);
+        SDbConn.Text = string.Join(Environment.NewLine, _cfg.DbConnections);
     }
 
     static List<string> Lines(string t) => t.Split('\n', '\r').Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
@@ -497,6 +499,7 @@ public partial class MainWindow : Window
         _cfg.WatchedServices = Lines(SWatched.Text);
         _cfg.ExtraDatabaseServices = Lines(SDbExtra.Text);
         _cfg.ExtraBackupKeywords = Lines(SBackupWords.Text);
+        _cfg.DbConnections = Lines(SDbConn.Text);
         _cfg.Save();
         SettingsInfo.Text = "Gespeichert in " + AppSettings.FilePath;
         OnRefresh(sender, e);
@@ -611,5 +614,48 @@ public partial class MainWindow : Window
             SvcGrid.Columns[5].Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;  // PID
         }
         if (ScopeGrid.Columns.Count > 3) ScopeGrid.Columns[3].Visibility = compact ? Visibility.Collapsed : Visibility.Visible; // Status
+    }
+
+    // ---------- Sicherheit & Rollen ----------
+    string _detailSig = "";
+
+    void RenderSections(List<DetailSection> secs)
+    {
+        string sig = string.Join("¦", secs.Select(x => x.Group + x.Title + x.Status + string.Join("|", x.Rows.Select(r => string.Join("~", r)))));
+        if (sig == _detailSig) return;
+        _detailSig = sig;
+        var sv = (ScrollViewer)PageDetails;
+        double off = sv.VerticalOffset;
+        DetailPanel.Children.Clear();
+        if (secs.Count == 0)
+        {
+            DetailPanel.Children.Add(new TextBlock { Text = "Noch keine Daten – die Zusatzprüfungen (Sicherheit, Hardware, Rollen) laufen im Hintergrund und aktualisieren sich alle 5 Minuten.",
+                Style = (Style)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
+            return;
+        }
+        var order = new[] { "Sicherheit", "Hardware", "Hyper-V", "IIS", "Drucker", "Dateiserver", "Exchange", "DFS" };
+        foreach (var grp in secs.GroupBy(x => x.Group).OrderBy(g => { int i = Array.IndexOf(order, g.Key); return i < 0 ? 99 : i; }))
+        {
+            DetailPanel.Children.Add(new TextBlock { Text = grp.Key, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 6, 0, 8) });
+            foreach (var sec in grp)
+            {
+                var card = new Border { Style = (Style)FindResource("Card") };
+                var stack = new StackPanel();
+                var head = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+                head.Children.Add(new System.Windows.Shapes.Ellipse { Width = 10, Height = 10, Margin = new Thickness(0, 0, 10, 0), Fill = HealthBrushConverter.For(sec.Status), VerticalAlignment = VerticalAlignment.Center });
+                head.Children.Add(new TextBlock { Text = sec.Title, FontWeight = FontWeights.SemiBold, FontSize = 15 });
+                stack.Children.Add(head);
+                if (sec.Note.Length > 0) stack.Children.Add(new TextBlock { Text = sec.Note, Style = (Style)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) });
+                var grid = new DataGrid { ItemsSource = sec.Rows, MaxHeight = 320, HeadersVisibility = DataGridHeadersVisibility.Column };
+                if (sec.Rows.Count <= 12) grid.MaxHeight = double.PositiveInfinity;
+                for (int i = 0; i < sec.Headers.Length; i++)
+                    grid.Columns.Add(new DataGridTextColumn { Header = sec.Headers[i], Binding = new Binding($"[{i}]"), Width = i == 0 ? new DataGridLength(1.6, DataGridLengthUnitType.Star) : new DataGridLength(1, DataGridLengthUnitType.Star) });
+                grid.PreviewMouseWheel += (_, e) => { e.Handled = true; sv.ScrollToVerticalOffset(sv.VerticalOffset - e.Delta); };
+                stack.Children.Add(grid);
+                card.Child = stack;
+                DetailPanel.Children.Add(card);
+            }
+        }
+        Dispatcher.BeginInvoke(new Action(() => sv.ScrollToVerticalOffset(off)), DispatcherPriority.Loaded);
     }
 }
