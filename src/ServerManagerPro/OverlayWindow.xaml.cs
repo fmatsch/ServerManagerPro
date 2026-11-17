@@ -152,6 +152,7 @@ public partial class OverlayWindow : Window
     public void ApplySettings()
     {
         Opacity = Math.Clamp(_cfg.OverlayOpacity, 0.3, 1.0);
+        System.Windows.Automation.AutomationProperties.SetName(this, "ServerManagerPro Overlay");
         FontSize = Math.Clamp(_cfg.OverlayFont, 9, 28);
         _sig = "";
         Reposition();
@@ -160,17 +161,22 @@ public partial class OverlayWindow : Window
 
     void Reposition()
     {
-        if (!IsLoaded && !IsVisible && ActualWidth == 0) { /* erste Größe kommt beim Anzeigen */ }
-        var wa = SystemParameters.WorkArea;
-        double w = ActualWidth, h = ActualHeight, m = 16;
+        double w = ActualWidth, h = ActualHeight;
         if (_cfg.OverlayCorner == "Custom")
         {
             Left = Math.Clamp(_cfg.OverlayX, SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth - Math.Max(w, 40));
             Top = Math.Clamp(_cfg.OverlayY, SystemParameters.VirtualScreenTop, SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight - Math.Max(h, 20));
             return;
         }
-        Left = _cfg.OverlayCorner.EndsWith("Left") ? wa.Left + m : wa.Right - w - m;
-        Top = _cfg.OverlayCorner.StartsWith("Top") ? wa.Top + m : wa.Bottom - h - m;
+        // Ecke des gewählten Bildschirms; in Pixeln gesetzt, damit unterschiedliche Skalierung der Bildschirme keine Rolle spielt
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        var screen = _cfg.OverlayMonitor > 0 && _cfg.OverlayMonitor <= screens.Length ? screens[_cfg.OverlayMonitor - 1] : System.Windows.Forms.Screen.PrimaryScreen ?? screens[0];
+        var wa = screen.WorkingArea;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        int pw = (int)Math.Ceiling(w * dpi.DpiScaleX), ph = (int)Math.Ceiling(h * dpi.DpiScaleY), m = (int)(16 * dpi.DpiScaleX);
+        int x = _cfg.OverlayCorner.EndsWith("Left") ? wa.Left + m : wa.Right - pw - m;
+        int y = _cfg.OverlayCorner.StartsWith("Top") ? wa.Top + m : wa.Bottom - ph - m;
+        SetWindowPos(_hwnd, IntPtr.Zero, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | 0x4 /* SWP_NOZORDER */);
     }
 
     // ---------- Inhalt ----------
@@ -200,7 +206,7 @@ public partial class OverlayWindow : Window
             {
                 case "health":
                     var h = HealthMonitor.Overall(_s.Checks);
-                    items.Add(new("Health", $"{HealthMonitor.Score(_s.Checks)}  {(h == Health.Ok ? "gesund" : h == Health.Warning ? "Warnung" : "Problem")}",
+                    items.Add(new("Health", $"{HealthMonitor.Score(_s.Checks)}  {Loc.T(h == Health.Ok ? "gesund" : h == Health.Warning ? "Warnung" : "Problem")}",
                         HealthBrushConverter.For(h))); break;
                 case "free" when _s.Disks.Count > 0:
                     var d = _s.Disks.OrderBy(x => x.FreePct).First();
@@ -240,7 +246,7 @@ public partial class OverlayWindow : Window
             var sp = new StackPanel { Orientation = Orientation.Horizontal };
             foreach (var i in items)
             {
-                sp.Children.Add(new TextBlock { Text = i.Label + " ", Foreground = Palette.Muted, Margin = new Thickness(sp.Children.Count > 0 ? 16 : 0, 0, 0, 0) });
+                sp.Children.Add(new TextBlock { Text = Loc.T(i.Label) + " ", Foreground = Palette.Muted, Margin = new Thickness(sp.Children.Count > 0 ? 16 : 0, 0, 0, 0) });
                 sp.Children.Add(new TextBlock { Text = i.Value, Foreground = i.Color, FontWeight = FontWeights.SemiBold });
             }
             Rows.Children.Add(sp);
@@ -252,7 +258,7 @@ public partial class OverlayWindow : Window
                 var g = new Grid { Margin = new Thickness(0, 1, 0, 1) };
                 g.ColumnDefinitions.Add(new ColumnDefinition { SharedSizeGroup = "L", Width = GridLength.Auto });
                 g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                g.Children.Add(new TextBlock { Text = i.Label, Foreground = Palette.Muted, Margin = new Thickness(0, 0, 14, 0) });
+                g.Children.Add(new TextBlock { Text = Loc.T(i.Label), Foreground = Palette.Muted, Margin = new Thickness(0, 0, 14, 0) });
                 var v = new TextBlock { Text = i.Value, Foreground = i.Color, FontWeight = FontWeights.SemiBold, TextAlignment = TextAlignment.Left };
                 Grid.SetColumn(v, 1);
                 g.Children.Add(v);
@@ -260,7 +266,7 @@ public partial class OverlayWindow : Window
             }
         }
         if (items.Count == 0)
-            Rows.Children.Add(new TextBlock { Text = "Keine Kennzahlen gewählt", Foreground = Palette.Muted });
+            Rows.Children.Add(new TextBlock { Text = Loc.T("Keine Kennzahlen gewählt"), Foreground = Palette.Muted });
     }
 
     /// <summary>Für Screenshots: das Overlay als Bild.</summary>

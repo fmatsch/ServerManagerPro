@@ -6,6 +6,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -36,6 +37,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Loc.Apply(this);
         _pages = Nav.Items.Cast<ListBoxItem>().Select(i => (FrameworkElement)FindName((string)i.Tag)).ToArray();
 
         _procView = new ListCollectionView(_procs) { IsLiveSorting = true };
@@ -51,6 +53,8 @@ public partial class MainWindow : Window
         var wa = SystemParameters.WorkArea;
         Width = Math.Min(Width, wa.Width);
         Height = Math.Min(Height, wa.Height);
+        MinWidth = Math.Min(MinWidth, wa.Width);
+        MinHeight = Math.Min(MinHeight, wa.Height);
         var sz = App.Args.SkipWhile(a => a != "--size").Skip(1).FirstOrDefault()?.Split('x');
         if (sz is { Length: 2 } && double.TryParse(sz[0], out var sw) && double.TryParse(sz[1], out var sh))
         {
@@ -71,6 +75,8 @@ public partial class MainWindow : Window
         if (App.Args.Contains("--demo")) NavAd.Visibility = NavDhcp.Visibility = Visibility.Visible;
         BuildOverlayUi();
         LoadOverlayUi();
+        LoadLanguageUi();
+        StartUpdateTimer();
         App.Overlay.Moved += () => Dispatcher.BeginInvoke(() => { _ovLoading = true; OvCorner.SelectedIndex = 4; _ovLoading = false; });
         _ready = true;
         ApplyLayout();
@@ -126,7 +132,7 @@ public partial class MainWindow : Window
             q = q.Where(c => c.Process.Contains(f, StringComparison.OrdinalIgnoreCase) || c.Local.Contains(f)
                           || c.Remote.Contains(f) || c.Pid.ToString() == f);
         var view = new ListCollectionView(q.ToList());
-        if (mode == 0) view.GroupDescriptions.Add(new PropertyGroupDescription("Scope"));
+        if (mode == 0) view.GroupDescriptions.Add(new PropertyGroupDescription("ScopeText"));
         SetItems(NetGrid, view);
     }
 
@@ -167,12 +173,13 @@ public partial class MainWindow : Window
         DhcpDot.Fill = HealthBrushConverter.For(h);
         DhcpDemo.Visibility = d.Demo ? Visibility.Visible : Visibility.Collapsed;
         int total = d.Scopes.Sum(x => x.Total), really = d.Scopes.Sum(x => x.ReallyFree), conf = d.Scopes.Sum(x => x.Conflicts);
-        DhcpHead.Text = d.ServiceRunning ? $"DHCP-Server – {d.Scopes.Count} Bereich(e)" : "DHCP-Server ist gestoppt";
-        DhcpSub.Text = d.Error.Length > 0 ? "DHCP-Daten nicht lesbar: " + d.Error
-            : $"Wirklich vergebbar: {really} von {total} Adressen" + (conf > 0 ? $" · {conf} Konflikt(e): antworten, obwohl DHCP sie als frei führt" : "")
-              + (d.ScanTime.HasValue ? $" · letzter Scan {d.ScanTime:t}" : " · Scan ausstehend")
-              + ".\nDie Zahl „wirklich frei“ = laut DHCP frei und im Scan (Ping und ARP) ohne Antwort.";
-        ScanInfo.Text = d.Scanning ? "  " + d.ScanProgress : "";
+        DhcpHead.Text = Loc.T(d.ServiceRunning ? $"DHCP-Server – {d.Scopes.Count} Bereich(e)" : "DHCP-Server ist gestoppt");
+        DhcpSub.Text = d.Error.Length > 0 ? Loc.T($"DHCP-Daten nicht lesbar: {d.Error}")
+            : Loc.T($"Wirklich vergebbar: {really} von {total} Adressen")
+              + (conf > 0 ? Loc.T($" · {conf} Konflikt(e): antworten, obwohl DHCP sie als frei führt") : "")
+              + (d.ScanTime.HasValue ? Loc.T($" · letzter Scan {d.ScanTime:t}") : Loc.T(" · Scan ausstehend"))
+              + Loc.T(".\nDie Zahl „wirklich frei“ = laut DHCP frei und im Scan (Ping und ARP) ohne Antwort.");
+        ScanInfo.Text = d.Scanning ? "  " + Loc.T(d.ScanProgress) : "";
         ScanButton.IsEnabled = !d.Scanning && !d.Demo;
 
         string? sel = (ScopeGrid.SelectedItem as DhcpScopeRow)?.ScopeId;
@@ -207,7 +214,7 @@ public partial class MainWindow : Window
     void OnDhcpScan(object sender, RoutedEventArgs e)
     {
         _mon.ScanDhcpNow();
-        ScanInfo.Text = "  Scan wird gestartet …";
+        ScanInfo.Text = "  " + Loc.T("Scan wird gestartet …");
         Task.Run(() => _mon.HealthOnce());
     }
 
@@ -269,6 +276,7 @@ public partial class MainWindow : Window
     void OnNav(object sender, SelectionChangedEventArgs e)
     {
         if (_pages == null) return;
+        if (_ultra) RebuildNavPick();
         for (int i = 0; i < _pages.Length; i++)
             _pages[i].Visibility = i == Nav.SelectedIndex ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -394,13 +402,14 @@ public partial class MainWindow : Window
     void OnHealth(Snapshot s)
     {
         if (!IsVisible) return;
+        Loc.Localize(s);
         _last = s;
         var overall = HealthMonitor.Overall(s.Checks);
         int score = HealthMonitor.Score(s.Checks);
         OverallDot.Fill = HealthBrushConverter.For(overall == Health.Ok ? Health.Ok : overall);
-        OverallText.Text = overall switch { Health.Ok => "Server gesund", Health.Warning => "Warnungen", _ => "Probleme erkannt" };
+        OverallText.Text = Loc.T(overall switch { Health.Ok => "Server gesund", Health.Warning => "Warnungen", _ => "Probleme erkannt" });
         int bad = s.Checks.Count(c => c.Status is Health.Warning or Health.Critical);
-        ScoreText.Text = $"Gesundheit {score}/100 · {(bad == 0 ? "alles in Ordnung" : bad + " Auffälligkeit(en)")}";
+        ScoreText.Text = Loc.T(bad == 0 ? $"Gesundheit {score}/100 · alles in Ordnung" : $"Gesundheit {score}/100 · {bad} Auffälligkeit(en)");
 
         Groups.ItemsSource = s.Checks.GroupBy(c => c.Category)
             .OrderBy(g => { int i = Array.IndexOf(Order, g.Key); return i < 0 ? 99 : i; })
@@ -464,8 +473,8 @@ public partial class MainWindow : Window
     static void AddFact(Panel panel, string label, string value)
     {
         var sp = new StackPanel { Margin = new Thickness(0, 0, 36, 4) };
-        sp.Children.Add(new TextBlock { Text = label, Foreground = (Brush)Application.Current.FindResource("MutedBrush"), FontSize = 11 });
-        sp.Children.Add(new TextBlock { Text = value, FontSize = 16, FontWeight = FontWeights.SemiBold });
+        sp.Children.Add(new TextBlock { Text = Loc.T(label), Foreground = (Brush)Application.Current.FindResource("MutedBrush"), FontSize = 11 });
+        sp.Children.Add(new TextBlock { Text = Loc.T(value), FontSize = 16, FontWeight = FontWeights.SemiBold });
         panel.Children.Add(sp);
     }
 
@@ -531,9 +540,13 @@ public partial class MainWindow : Window
 
     void BuildOverlayUi()
     {
+        OvMonitor.Items.Add(new ComboBoxItem { Content = Loc.T("Hauptbildschirm") });
+        var screens = System.Windows.Forms.Screen.AllScreens;
+        for (int i = 0; i < screens.Length; i++)
+            OvMonitor.Items.Add(new ComboBoxItem { Content = $"{i + 1}: {screens[i].Bounds.Width}×{screens[i].Bounds.Height}" + (screens[i].Primary ? " (" + Loc.T("Haupt") + ")" : "") });
         foreach (var (key, name, _, _) in OverlayWindow.Catalog)
         {
-            var cb = new CheckBox { Content = name, Tag = key };
+            var cb = new CheckBox { Content = Loc.T(name), Tag = key };
             cb.Checked += OnOverlayChanged; cb.Unchecked += OnOverlayChanged;
             _ovBoxes[key] = cb;
             OvMetrics.Children.Add(cb);
@@ -546,6 +559,7 @@ public partial class MainWindow : Window
         foreach (var kv in _ovBoxes) kv.Value.IsChecked = _cfg.OverlayMetrics.Contains(kv.Key);
         OvCorner.SelectedIndex = Math.Max(0, Array.IndexOf(Corners, _cfg.OverlayCorner));
         OvLayout.SelectedIndex = _cfg.OverlayHorizontal ? 1 : 0;
+        OvMonitor.SelectedIndex = Math.Clamp(_cfg.OverlayMonitor, 0, Math.Max(0, OvMonitor.Items.Count - 1));
         OvOpacity.Value = _cfg.OverlayOpacity * 100;
         OvFont.Value = _cfg.OverlayFont;
         OvOnStart.IsChecked = _cfg.OverlayOnStart;
@@ -564,6 +578,7 @@ public partial class MainWindow : Window
         string corner = Corners[Math.Max(0, OvCorner.SelectedIndex)];
         _cfg.OverlayCorner = corner == "Custom" && _cfg.OverlayX == 0 && _cfg.OverlayY == 0 ? "TopRight" : corner;
         _cfg.OverlayHorizontal = OvLayout.SelectedIndex == 1;
+        _cfg.OverlayMonitor = Math.Max(0, OvMonitor.SelectedIndex);
         _cfg.OverlayOpacity = OvOpacity.Value / 100.0;
         _cfg.OverlayFont = Math.Round(OvFont.Value);
         _cfg.OverlayOnStart = OvOnStart.IsChecked == true;
@@ -584,26 +599,30 @@ public partial class MainWindow : Window
 
     // ---------- Anpassung an kleine Fenster ----------
     bool? _compact, _narrow;
-    bool _low;
+    bool _low, _ultra;
 
     /// <summary>Kompakt unter 1100 px Breite, sehr schmal unter 900 px: schmalere Navigation, weniger Spalten, kürzere Beschriftungen.</summary>
     void ApplyLayout()
     {
         if (!IsInitialized || Tiles == null) return;
-        bool compact = ActualWidth < 1100, narrow = ActualWidth < 900;
+        bool compact = ActualWidth < 1100, narrow = ActualWidth < 900, ultra = ActualWidth < 740;
         bool low = ActualHeight < 660;
-        if (_compact == compact && _narrow == narrow && _low == low) return;
+        if (_compact == compact && _narrow == narrow && _low == low && _ultra == ultra) return;
+        _ultra = ultra;
         _low = low;
         _compact = compact; _narrow = narrow;
 
-        NavCol.Width = new GridLength(narrow ? 136 : compact ? 150 : 210);
+        NavCol.Width = new GridLength(ultra ? 0 : narrow ? 136 : compact ? 150 : 210);
+        Nav.Visibility = ultra ? Visibility.Collapsed : Visibility.Visible;
+        NavPick.Visibility = ultra ? Visibility.Visible : Visibility.Collapsed;
+        if (ultra) RebuildNavPick();
         foreach (ListBoxItem it in Nav.Items) it.Padding = compact ? new Thickness(10, 7, 6, 7) : new Thickness(14, 10, 14, 10);
         Nav.Margin = compact ? new Thickness(8, 10, 2, 8) : new Thickness(12, 14, 6, 12);
         Tiles.Columns = compact ? 2 : 4;
         PerfGrid.Columns = narrow ? 1 : 2;
         OverlayBtn.Padding = RefreshBtn.Padding = AdminButton.Padding = compact ? new Thickness(9, 6, 9, 6) : new Thickness(14, 7, 14, 7);
-        RefreshBtn.Content = narrow ? "↻" : "Aktualisieren";
-        AdminButton.Content = compact ? "Als Admin" : "Als Administrator starten";
+        RefreshBtn.Content = narrow ? "↻" : Loc.T("Aktualisieren");
+        AdminButton.Content = Loc.T(compact ? "Als Admin" : "Als Administrator starten");
         OsText.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         StatusPill.Padding = compact ? new Thickness(10, 4, 10, 4) : new Thickness(16, 6, 16, 6);
         ScopeGrid.MaxHeight = low ? 80 : compact ? 110 : 150;
@@ -629,11 +648,11 @@ public partial class MainWindow : Window
         DetailPanel.Children.Clear();
         if (secs.Count == 0)
         {
-            DetailPanel.Children.Add(new TextBlock { Text = "Noch keine Daten – die Zusatzprüfungen (Sicherheit, Hardware, Rollen) laufen im Hintergrund und aktualisieren sich alle 5 Minuten.",
+            DetailPanel.Children.Add(new TextBlock { Text = Loc.T("Noch keine Daten – die Zusatzprüfungen (Sicherheit, Hardware, Rollen) laufen im Hintergrund und aktualisieren sich alle 5 Minuten."),
                 Style = (Style)FindResource("Muted"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(4) });
             return;
         }
-        var order = new[] { "Sicherheit", "Hardware", "Hyper-V", "IIS", "Drucker", "Dateiserver", "Exchange", "DFS" };
+        var order = new[] { "Sicherheit", "Hardware", "Hyper-V", "IIS", "Drucker", "Dateiserver", "Exchange", "DFS" }.Select(Loc.T).ToArray();
         foreach (var grp in secs.GroupBy(x => x.Group).OrderBy(g => { int i = Array.IndexOf(order, g.Key); return i < 0 ? 99 : i; }))
         {
             DetailPanel.Children.Add(new TextBlock { Text = grp.Key, FontSize = 18, FontWeight = FontWeights.SemiBold, Margin = new Thickness(2, 6, 0, 8) });
@@ -657,5 +676,131 @@ public partial class MainWindow : Window
             }
         }
         Dispatcher.BeginInvoke(new Action(() => sv.ScrollToVerticalOffset(off)), DispatcherPriority.Loaded);
+    }
+
+    // ---------- Sprache und Updates ----------
+    static readonly string[] Langs = { "auto", "de", "en" };
+    UpdateChecker.Info? _update;
+
+    void LoadLanguageUi()
+    {
+        _ovLoading = true;
+        LangBox.SelectedIndex = Math.Max(0, Array.IndexOf(Langs, _cfg.Language));
+        UpdCheck.IsChecked = _cfg.CheckUpdates;
+        _ovLoading = false;
+    }
+
+    void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_ready || _ovLoading) return;
+        _cfg.Language = Langs[Math.Max(0, LangBox.SelectedIndex)];
+        _cfg.Save();
+        MessageBox.Show(this, Loc.T("Die Sprache wird nach einem Neustart der Anwendung übernommen."), "ServerManagerPro", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    void OnUpdateOptionChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _ovLoading) return;
+        _cfg.CheckUpdates = UpdCheck.IsChecked == true;
+        _cfg.Save();
+    }
+
+    void StartUpdateTimer()
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromHours(24) };
+        t.Tick += async (_, _) => { if (_cfg.CheckUpdates) await RunUpdateCheck(false); };
+        t.Start();
+        var first = new DispatcherTimer { Interval = TimeSpan.FromSeconds(25) };
+        first.Tick += async (_, _) => { first.Stop(); if (_cfg.CheckUpdates) await RunUpdateCheck(false); };
+        first.Start();
+    }
+
+    async void OnCheckUpdateNow(object sender, RoutedEventArgs e) => await RunUpdateCheck(true);
+
+    async Task RunUpdateCheck(bool interactive)
+    {
+        try
+        {
+            _update = await UpdateChecker.CheckAsync();
+            UpdateButton.Visibility = _update != null ? Visibility.Visible : Visibility.Collapsed;
+            if (_update != null) UpdateButton.Content = Loc.T("Neue Version {0} verfügbar").Replace("{0}", _update.Tag);
+            if (interactive)
+                MessageBox.Show(this, _update == null ? Loc.T("Es ist die neueste Version.") : Loc.T("Neue Version {0} verfügbar").Replace("{0}", _update.Tag),
+                    "ServerManagerPro", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            if (interactive) MessageBox.Show(this, ex.GetBaseException().Message, "ServerManagerPro", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    async void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (_update == null) return;
+        if (!UpdateChecker.IsInstalledCopy || _update.SetupUrl == null)
+        {
+            UpdateChecker.OpenPage(_update.PageUrl); // portable Kopie: Release-Seite öffnen
+            return;
+        }
+        if (MessageBox.Show(this, $"{_update.Tag}: " + Loc.T("Jetzt aktualisieren") + "?", "ServerManagerPro", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        try
+        {
+            UpdateButton.IsEnabled = false;
+            string file = await UpdateChecker.DownloadSetupAsync(_update);
+            UpdateChecker.RunSetup(file);
+            App.Quit();
+        }
+        catch (Exception ex)
+        {
+            UpdateButton.IsEnabled = true;
+            MessageBox.Show(this, ex.GetBaseException().Message, "ServerManagerPro", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    // ---------- Sehr schmale Fenster: Auswahlliste statt Navigation ----------
+    bool _pickBusy;
+
+    List<ListBoxItem> VisibleNav() => Nav.Items.Cast<ListBoxItem>().Where(i => i.Visibility == Visibility.Visible).ToList();
+
+    void RebuildNavPick()
+    {
+        _pickBusy = true;
+        var vis = VisibleNav();
+        NavPick.Items.Clear();
+        foreach (var it in vis) NavPick.Items.Add(new ComboBoxItem { Content = it.Content, Tag = it });
+        NavPick.SelectedIndex = Math.Max(0, vis.IndexOf((ListBoxItem)Nav.SelectedItem));
+        _pickBusy = false;
+    }
+
+    void OnNavPickOpened(object sender, EventArgs e) { if (!_pickBusy) RebuildNavPick(); }
+
+    void OnNavPick(object sender, SelectionChangedEventArgs e)
+    {
+        if (_pickBusy || NavPick.SelectedItem is not ComboBoxItem { Tag: ListBoxItem it }) return;
+        Nav.SelectedItem = it;
+    }
+
+    // ---------- Tastatur ----------
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+        if (e.Key == Key.F5) { OnRefresh(this, new RoutedEventArgs()); e.Handled = true; return; }
+        if (ctrl && e.Key >= Key.D1 && e.Key <= Key.D9)
+        {
+            var vis = VisibleNav();
+            int i = e.Key - Key.D1;
+            if (i < vis.Count) { Nav.SelectedItem = vis[i]; e.Handled = true; }
+            return;
+        }
+        if (ctrl && e.Key == Key.F)
+        {
+            TextBox? box = Nav.SelectedIndex switch { 2 => ProcFilter, 3 => SvcFilter, 7 => NetFilter, 10 => IpFilter, _ => null };
+            if (box != null) { box.Focus(); box.SelectAll(); e.Handled = true; }
+        }
+        else if (e.Key == Key.Escape && Keyboard.FocusedElement is TextBox tb && tb.Text.Length > 0 && (tb == ProcFilter || tb == SvcFilter || tb == NetFilter || tb == IpFilter))
+        {
+            tb.Clear(); e.Handled = true;
+        }
     }
 }

@@ -97,6 +97,6 @@ public sealed class PercentBrushConverter : IValueConverter
 public static class Palette
 {
     static SolidColorBrush B(string hex) { var b = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!; b.Freeze(); return b; }
-    public static readonly Brush Ok = B("#22C55E"), Warn = B("#F59E0B"), Crit = B("#EF4444"), Info = B("#60A5FA"),
+    public static readonly Brush Ok = B("#22C55E"), Warn = B("#F59E0B"), Crit = B("#F87171"), Info = B("#60A5FA"),
         Muted = B("#8B9BAB"), Accent = B("#2DD4BF"), Violet = B("#A78BFA"), Orange = B("#FB923C");
 }

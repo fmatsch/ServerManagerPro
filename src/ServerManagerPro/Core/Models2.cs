@@ -9,6 +9,8 @@ public sealed class ConnRow
     public string Local { get; set; } = "";
     public string Remote { get; set; } = "";
     public string State { get; set; } = "";
+    public string ScopeText => Loc.T(Scope);
+    public string StateText => Loc.T(State);
 }
 
 public sealed class AdInfo
@@ -70,6 +72,8 @@ public sealed class IpRow
     public string Mac { get; set; } = "";
     public string Host { get; set; } = "";
     public bool Alive { get; set; }
+    public string StatusText => Loc.T(Status);
+    public string DetailText => Loc.T(Detail);
 }
 
 /// <summary>Allgemeine Detailtabelle für die Seite „Sicherheit &amp; Rollen“.</summary>

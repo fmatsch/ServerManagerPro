@@ -50,12 +50,19 @@ public sealed class AppSettings
         }
     }
 
+    /// <summary>auto, de oder en</summary>
+    public string Language { get; set; } = "auto";
+    /// <summary>Beim Start und täglich bei GitHub nach einer neuen Version fragen (aus Datenschutzgründen standardmäßig aus).</summary>
+    public bool CheckUpdates { get; set; }
+
     // ---- Overlay ----
     public bool OverlayOnStart { get; set; }
     /// <summary>cpu, ram, disk, net, health, free, topproc, dbconn, rdp, smb, inet, backup, dhcp, ad</summary>
     public List<string> OverlayMetrics { get; set; } = new() { "health", "cpu", "ram", "disk", "net" };
     /// <summary>TopRight, TopLeft, BottomRight, BottomLeft oder Custom (frei verschoben).</summary>
     public string OverlayCorner { get; set; } = "TopRight";
+    /// <summary>0 = Hauptbildschirm, sonst Nummer des Bildschirms (1-basiert, wie in der Auswahl).</summary>
+    public int OverlayMonitor { get; set; }
     public double OverlayX { get; set; }
     public double OverlayY { get; set; }
     public bool OverlayHorizontal { get; set; }

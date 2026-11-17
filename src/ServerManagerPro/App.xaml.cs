@@ -43,9 +43,28 @@ public partial class App : Application
             return;
         }
 
+        int ut = Array.IndexOf(Args, "--updatetest");
+        if (ut >= 0 && ut + 1 < Args.Length)
+        {
+            string text;
+            try
+            {
+                var latest = Task.Run(UpdateChecker.LatestAsync).GetAwaiter().GetResult();
+                text = latest == null ? "keine Version gefunden"
+                    : $"Neueste: {latest.Tag} | laufend: {UpdateChecker.Current} | Update: {(latest.Version > UpdateChecker.Current ? "ja" : "nein")} | Setup: {latest.SetupName ?? "–"} | Summen: {(latest.SumsUrl != null ? "ja" : "–")} | Installiert: {UpdateChecker.IsInstalledCopy}";
+            }
+            catch (Exception ex) { text = "Fehler: " + ex.GetBaseException().Message; }
+            File.WriteAllText(Args[ut + 1], text);
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         Settings = AppSettings.Load();
+        int li = Array.IndexOf(Args, "--lang");
+        if (li >= 0 && li + 1 < Args.Length) Settings.Language = Args[li + 1];
+        Loc.Init(Settings.Language);
         bool overlayOnly = Args.Contains("--overlay");
         if (Args.Contains("--with-overlay"))
             Settings.OverlayMetrics = new() { "health", "cpu", "ram", "disk", "net", "free", "topproc", "backup", "dhcp" };
@@ -132,13 +151,13 @@ public partial class App : Application
     static void CreateTray()
     {
         var menu = new System.Windows.Forms.ContextMenuStrip();
-        _miOverlay = new System.Windows.Forms.ToolStripMenuItem("Overlay anzeigen   (Strg+Alt+O)");
+        _miOverlay = new System.Windows.Forms.ToolStripMenuItem(Loc.T("Overlay anzeigen   (Strg+Alt+O)"));
         _miOverlay.Click += (_, _) => ToggleOverlay();
-        var miMove = new System.Windows.Forms.ToolStripMenuItem("Overlay verschieben");
+        var miMove = new System.Windows.Forms.ToolStripMenuItem(Loc.T("Overlay verschieben"));
         miMove.Click += (_, _) => Overlay.ToggleMove();
-        var miMain = new System.Windows.Forms.ToolStripMenuItem("Hauptfenster öffnen   (Strg+Alt+M)");
+        var miMain = new System.Windows.Forms.ToolStripMenuItem(Loc.T("Hauptfenster öffnen   (Strg+Alt+M)"));
         miMain.Click += (_, _) => ShowMain();
-        var miQuit = new System.Windows.Forms.ToolStripMenuItem("Beenden");
+        var miQuit = new System.Windows.Forms.ToolStripMenuItem(Loc.T("Beenden"));
         miQuit.Click += (_, _) => Quit();
         menu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { _miOverlay, miMove, miMain, new System.Windows.Forms.ToolStripSeparator(), miQuit });
         menu.Opening += (_, _) => _miOverlay!.Checked = Overlay.IsShown;

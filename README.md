@@ -22,7 +22,18 @@ Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (6
 
 ## Installation
 
-ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) laden, entpacken, `ServerManagerPro.exe` starten. Die EXE bringt .NET mit; es muss nichts installiert werden. Für das volle Bild als **Administrator** starten (Button in der Kopfzeile).
+**Setup (empfohlen):** `ServerManagerPro-Setup-<Version>.exe` von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) ausführen. Es installiert nach `C:\Program Files\ServerManagerPro`, legt Startmenü-Einträge an (Hauptprogramm und „Overlay“) und bietet optional an, das Overlay bei der Anmeldung im Hintergrund zu starten. Ein erneutes Ausführen aktualisiert die vorhandene Installation (laufende Instanzen werden geschlossen und danach wieder gestartet). Einstellungen unter `C:\ProgramData\ServerManagerPro` bleiben beim Deinstallieren erhalten. Stille Installation: `ServerManagerPro-Setup-<Version>.exe /SILENT`.
+
+**Ohne Installation:** ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) laden, entpacken, `ServerManagerPro.exe` starten. Die EXE bringt .NET mit; es muss nichts installiert werden. Für das volle Bild als **Administrator** starten (Button in der Kopfzeile).
+
+## Sprache, Updates, Bedienung
+
+- **Sprache:** Deutsch und Englisch (*Einstellungen → Sprache*, „Automatisch“ folgt der Windows-Sprache; Änderung nach Neustart). Die Oberfläche, Beschriftungen, Tabellenköpfe, die Prüfungsnamen und die häufigsten Meldungen sind übersetzt. **Seltenere Meldungen und Werte, die Windows selbst liefert, bleiben deutsch bzw. in der Sprache von Windows.**
+- **Update-Prüfung (aus, bis Sie sie einschalten):** *Einstellungen → Automatisch nach Updates suchen* fragt beim Start und danach täglich bei GitHub die Release-Liste ab (anonym, keine Daten über Sie oder den Rechner). Bei einer neuen Version erscheint ein Knopf in der Kopfzeile. Ist die App über das Setup installiert, lädt der Knopf das Setup herunter, **prüft die SHA-256-Summe** gegen `SHA256SUMS.txt` des Releases und startet es erst bei Übereinstimmung; bei einer portablen Kopie öffnet er die Release-Seite. „Nach Updates suchen“ prüft sofort.
+- **Tastatur:** `F5` aktualisiert, `Strg+1 … 9` wechselt die Seite, `Strg+F` springt in das Filterfeld der Seite, `Esc` leert es. Schaltflächen haben einen sichtbaren Fokusrahmen; Eingabefelder, Diagramme und Tabellen tragen Namen für Screenreader, Ampelpunkte haben zusätzlich einen Text (Tooltip).
+- **Farben:** Text und Statusfarben erreichen auf den dunklen Flächen mindestens 4,5:1 Kontrast (gemessen); der Status wird nie nur über die Farbe vermittelt.
+- **Overlay auf mehreren Bildschirmen:** Das Overlay kann auf einem frei wählbaren Bildschirm in einer Ecke stehen (*Einstellungen → Overlay → Bildschirm*) oder per Ziehen frei positioniert werden.
+- **Kleine Bildschirme:** bis 1024×768 bei 100 % Skalierung, in einer sehr schmalen Ansicht auch bei höherer Skalierung (z. B. 1024×768 bei 150 % ≈ 683×512 Pixel): Die Navigation wird dann zur Auswahlliste.
 
 ## Overlay
 
@@ -57,6 +68,10 @@ Ein kleines Fenster über allem anderen mit den Kennzahlen, die Sie unter *Einst
 
 Schwellenwerte, zusätzliche Dienste und Backup-Stichwörter stehen unter *Einstellungen* und in `C:\ProgramData\ServerManagerPro\settings.json`.
 
+## Signierung
+
+Die veröffentlichten EXE-Dateien sind **nicht signiert** (dafür braucht es ein Code-Signing-Zertifikat, das nicht kostenlos ist), Windows SmartScreen warnt deshalb. Die CI signiert automatisch, sobald im Repository die Secrets `SIGN_PFX_BASE64` (PFX-Datei, Base64) und `SIGN_PFX_PASSWORD` hinterlegt sind: EXE und Setup werden dann mit `signtool` samt Zeitstempel signiert. Bis dahin: Prüfsummen stehen in `SHA256SUMS.txt` beim Release.
+
 ## Grenzen
 
 - **Nicht auf echten Systemen geprüft** (nur gegen die Windows-Schnittstellen entwickelt): Hyper-V, IIS, Druckserver, FSRM, Exchange, DFS, die PostgreSQL-/MySQL-Detailwerte, DHCP-Failover und -IPv6 sowie die Zertifikatsliste. Auf dem Testrechner waren diese Rollen bzw. Zertifikate nicht vorhanden. Über Fehlerberichte freue ich mich.
@@ -72,6 +87,8 @@ Schwellenwerte, zusätzliche Dienste und Backup-Stichwörter stehen unter *Einst
 - Backup-Erkennung ist heuristisch (Dienste, Prozesse, Aufgaben, Ereignisprotokoll). Fehlt Ihre Lösung, helfen Stichwörter in den Einstellungen.
 - Detailwerte gibt es für SQL Server; andere Datenbanken zeigen Zustand, CPU, RAM und Verbindungen.
 - Die EXE ist nicht signiert (SmartScreen-Hinweis).
+- **Setup, Update-Installation, Signierung und Bildschirmwahl** sind nur teilweise geprüft: Das Setup wird von der CI gebaut, ich habe es aber nicht selbst installiert; die automatische Update-Installation (Download, Prüfsumme, Start des Setups) ist nicht Ende-zu-Ende ausprobiert; die Signierung ist ohne Zertifikat nicht getestet; die Bildschirmwahl wurde mit nur einem Bildschirm entwickelt.
+- Screenreader (Narrator, NVDA) und der Windows-Kontrastmodus wurden nicht getestet.
 
 ## Selbst bauen
 

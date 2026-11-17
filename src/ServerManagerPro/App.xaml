@@ -47,6 +47,10 @@
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
                             </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                <Setter TargetName="b" Property="BorderThickness" Value="2"/>
+                            </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter TargetName="b" Property="Opacity" Value="0.45"/>
                             </Trigger>

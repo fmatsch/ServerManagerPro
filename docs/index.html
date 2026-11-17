@@ -159,6 +159,9 @@
     <div class="card"><h3>Gesundheitswert</h3><p>Alle Prüfungen fließen in eine Ampel und einen Wert von 0–100. Jede Auffälligkeit sagt im Klartext, was los ist.</p></div>
     <div class="card"><h3>Ein Programm, keine Installation</h3><p>Eine einzige EXE, die .NET gleich mitbringt. Auf einem Server einfach kopieren und starten.</p></div>
     <div class="card"><h3>Für Server und Arbeitsplatz</h3><p>Windows Server 2016, 2019, 2022, 2025 sowie Windows 10 und 11 (64 Bit).</p></div>
+    <div class="card"><h3>Deutsch und Englisch</h3><p>Die Oberfläche gibt es in beiden Sprachen („Automatisch“ folgt Windows). Seltene Meldungen bleiben vorerst deutsch.</p></div>
+    <div class="card"><h3>Setup und Update-Prüfung</h3><p>Setup-EXE mit Startmenü-Einträgen und optionalem Overlay-Autostart. Auf Wunsch fragt die App täglich bei GitHub nach einer neuen Version und prüft vor der Installation die SHA-256-Summe.</p></div>
+    <div class="card"><h3>Bedienbar ohne Maus</h3><p>F5, Strg+Ziffer für die Seiten, Strg+F für den Filter, Fokusrahmen, Namen für Screenreader und ausreichende Kontraste (mindestens 4,5:1).</p></div>
     <div class="card"><h3>Auch auf kleinen Bildschirmen</h3><p>Die Oberfläche passt sich an: schmalere Navigation, weniger Spalten, kürzere Beschriftungen. Bedienbar bis 1024×768, Mindestgröße 800×540 – etwa auf der Server-Konsole oder per Remote-Sitzung mit niedriger Auflösung.</p></div>
     <div class="card"><h3>Anpassbar</h3><p>Schwellenwerte, eigene Dienste, die laufen müssen, zusätzliche Datenbank-Dienste und Backup-Stichwörter.</p></div>
     <div class="card"><h3>Bericht exportieren</h3><p>Der aktuelle Zustand als Markdown-Bericht – für Tickets, Wartungsprotokolle oder die Übergabe.</p></div>
@@ -166,7 +169,8 @@
   </div>
 
   <h2>Installation</h2>
-  <p style="color:var(--muted);margin-top:0">ZIP von der <a href="https://github.com/fmatsch/ServerManagerPro/releases/latest">Release-Seite</a> laden, entpacken und <b>ServerManagerPro.exe</b> starten. Für das volle Bild als Administrator ausführen (Button „Als Administrator starten“ in der Kopfzeile). Einstellungen liegen in <code>C:\ProgramData\ServerManagerPro\settings.json</code>.</p>
+  <p style="color:var(--muted);margin-top:0"><b>Setup:</b> <b>ServerManagerPro-Setup-&lt;Version&gt;.exe</b> von der <a href="https://github.com/fmatsch/ServerManagerPro/releases/latest">Release-Seite</a> ausführen – installiert nach <code>C:\Program Files\ServerManagerPro</code>, legt Startmenü-Einträge an und aktualisiert eine vorhandene Installation. Stille Installation mit <code>/SILENT</code>.</p>
+  <p style="color:var(--muted)"><b>Ohne Installation:</b> ZIP von der <a href="https://github.com/fmatsch/ServerManagerPro/releases/latest">Release-Seite</a> laden, entpacken und <b>ServerManagerPro.exe</b> starten. Für das volle Bild als Administrator ausführen (Button „Als Administrator starten“ in der Kopfzeile). Einstellungen liegen in <code>C:\ProgramData\ServerManagerPro\settings.json</code>.</p>
 
   <h2>Gut zu wissen</h2>
   <div class="note"><p><b>Ohne Administratorrechte</b> fehlen einige Werte: SMB-Clients, SQL-Server-Leistungsindikatoren, manche geplante Aufgaben und das Steuern von Diensten. Die App zeigt das an und läuft trotzdem.</p></div>
@@ -177,7 +181,8 @@
     <li><b>IP-Scan:</b> Im eigenen Subnetz wird per ARP geprüft (findet auch Geräte, die Ping blockieren), in anderen Subnetzen nur per Ping. Ein Gerät mit blockiertem Ping hinter einem Router bleibt dort unentdeckt.</li>
     <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>
     <li><b>Datenbanken:</b> Verbindungen werden über die TCP-Verbindungen der Datenbankprozesse gezählt (alle Engines). Die Tiefe der SQL-Server-Werte erreicht die Sicht anderer Engines noch nicht.</li>
-    <li><b>Nicht signiert:</b> Die EXE ist nicht signiert, SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“.</li>
+    <li><b>Nicht signiert:</b> Setup und EXE sind nicht signiert (ohne Zertifikat), SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“. Prüfsummen stehen in <code>SHA256SUMS.txt</code> beim Release.</li>
+    <li><b>Teilweise geprüft:</b> Setup (gebaut von der CI, nicht selbst installiert), automatische Update-Installation, Bildschirmwahl des Overlays, Screenreader und Kontrastmodus.</li>
   </ul>
 
   <footer>
@@ -191,7 +196,7 @@
   fetch("https://api.github.com/repos/fmatsch/ServerManagerPro/releases/latest")
     .then(r => r.ok ? r.json() : Promise.reject())
     .then(rel => {
-      const a = (rel.assets || []).find(x => x.name.endsWith(".zip"));
+      const a = (rel.assets || []).find(x => /Setup.*\.exe$/.test(x.name)) || (rel.assets || []).find(x => x.name.endsWith(".zip"));
       if (!a) return;
       document.getElementById("dl").href = a.browser_download_url;
       document.getElementById("dl-meta").textContent =
