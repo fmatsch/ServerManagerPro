@@ -147,4 +147,59 @@ public static class SelfChecks
             sb.AppendLine($"RemoteMonitor {s.Name,-13} ok={s.Ok} status={s.Status} score={s.ScoreText} fehler='{s.Error}' probleme='{s.Problems}'");
         return sb.ToString();
     }
+
+    public static string HistoryTest()
+    {
+        var sb = new StringBuilder();
+        string dir = Path.Combine(Path.GetTempPath(), "smp-historytest-" + Guid.NewGuid().ToString("N")[..8]);
+        HistoryStore.Root = dir;
+        var now = DateTime.Now;
+        var rnd = new Random(1);
+        double sumCpu = 0; int n = 0;
+        // 3 Tage Minutenwerte, mit einer Lücke von 3 Stunden und fehlenden Werten (NaN)
+        for (var t = now.AddDays(-3); t < now; t = t.AddMinutes(1))
+        {
+            if (t > now.AddHours(-30) && t < now.AddHours(-27)) continue;
+            double cpu = 20 + rnd.NextDouble() * 10; sumCpu += cpu; n++;
+            HistoryStore.Append("local", new Sample(t, cpu, cpu + 5, 50, 52, double.NaN, double.NaN, 1000, 500, 100, t.Hour == 4 ? 1 : 0, double.NaN, double.NaN));
+        }
+        var q = HistoryStore.Query("local", now.AddDays(-3), now, 360, out int raw, out int[] oc);
+        sb.AppendLine($"Schreiben: {n} Minutenwerte; gelesen roh={raw}; zusammengefasst={q.Count} (erwartet höchstens 360)");
+        sb.AppendLine($"Mittelwert CPU: erwartet {sumCpu / n:0.00}, gelesen {q.Where(x => !double.IsNaN(x.CpuAvg)).Average(x => x.CpuAvg):0.00}");
+        sb.AppendLine($"Zustände roh: ok={oc[0]} warn={oc[1]} krit={oc[2]} (Summe {oc.Sum()} = roh {raw})");
+        sb.AppendLine($"NaN bleibt NaN (Datenträger): {q.All(x => double.IsNaN(x.DiskAvg))}");
+        var gap = q.Zip(q.Skip(1), (a, b) => (b.T - a.T).TotalHours).Max();
+        sb.AppendLine($"Größte Lücke sichtbar: {gap:0.0} h (erwartet etwa 3)");
+        var small = HistoryStore.Query("local", now.AddHours(-2), now, 360, out int raw2, out _);
+        sb.AppendLine($"2-Stunden-Ansicht: roh={raw2}, Punkte={small.Count} (unverdichtet, da <= 360)");
+
+        // Beschädigte Zeile darf nichts zerstören
+        File.AppendAllText(Path.Combine(dir, $"m-local-{now:yyyyMMdd}.csv"), "kaputt;;;\n12;3\n");
+        sb.AppendLine($"Nach beschädigter Zeile gelesen: {HistoryStore.ReadRaw("local", now.AddHours(-2), now).Count} (vorher {raw2})");
+
+        // Zustandswechsel
+        var cfg = new AppSettings { HistoryEnabled = true };
+        using var mon = new HealthMonitor(cfg);
+        using var rec = new HistoryRecorder(mon, new RemoteMonitor(cfg, new AlertEngine(cfg)), cfg);
+        var t0 = now.AddHours(-1);
+        CheckResult C(string name, Health h) => new("Dienste", name, h, name + "; mit Semikolon\nund Zeilenumbruch");
+        rec.RecordChecks("SRV-X", new() { C("A", Health.Ok), C("B", Health.Warning) }, t0);
+        rec.RecordChecks("SRV-X", new() { C("A", Health.Critical), C("B", Health.Ok) }, t0.AddMinutes(5));
+        rec.RecordChecks("SRV-X", new() { C("A", Health.Critical), C("B", Health.Ok) }, t0.AddMinutes(10));   // keine Änderung
+        rec.RecordChecks("SRV-X", new() { C("A", Health.Info), C("B", Health.Ok) }, t0.AddMinutes(15));       // Info zählt als in Ordnung
+        var ch = HistoryStore.ReadChanges("SRV-X", now.AddHours(-2), now);
+        sb.AppendLine($"Zustandswechsel: {ch.Count} (erwartet 4: B beim Start→Warnung, A→Kritisch, B→In Ordnung, A→In Ordnung)");
+        foreach (var c in ch.OrderBy(c => c.Time)) sb.AppendLine($"   {c.Time:HH:mm} {c.Name}: {c.From} → {c.To} | {c.Detail}");
+
+        // Aufbewahrung
+        int removed = HistoryStore.Purge(1);
+        var left = HistoryStore.ReadRaw("local", now.AddDays(-3), now);
+        sb.AppendLine($"Aufbewahrung 1 Tag: {removed} Einträge/Dateien entfernt; älteste Daten jetzt {left.Min(x => x.T):g} (nicht älter als gestern: {left.Min(x => x.T).Date >= now.Date.AddDays(-1)})");
+        var info = HistoryStore.Info("local");
+        sb.AppendLine($"Info: erster Tag {info.first:d}, {info.bytes} Bytes");
+        HistoryStore.Clear();
+        sb.AppendLine($"Nach Löschen: {HistoryStore.ReadRaw("local", now.AddDays(-3), now).Count} Werte");
+        try { Directory.Delete(dir, true); } catch { }
+        return sb.ToString();
+    }
 }

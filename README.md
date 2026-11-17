@@ -26,6 +26,20 @@ Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (6
 
 **Ohne Installation:** ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) laden, entpacken, `ServerManagerPro.exe` starten. Die EXE bringt .NET mit; es muss nichts installiert werden. Für das volle Bild als **Administrator** starten (Button in der Kopfzeile).
 
+## Verlauf
+
+Die App schreibt im Hintergrund einen **Verlauf** (*Verlauf*-Seite, Standard: 30 Tage): pro Minute CPU, Arbeitsspeicher, Datenträger-Aktivität, Netzwerk und Gesundheitswert (jeweils Mittelwert und Höchstwert) sowie **jede Zustandsänderung** einer Prüfung („In Ordnung → Kritisch“, mit Zeit und Meldung).
+
+- Diagramme für die letzten 6 Stunden, 24 Stunden, 7 oder 30 Tage mit Zeitachse, Höchstwert-Band, Lücken (wenn die App nicht lief) und Mauszeiger mit Zeitpunkt und Wert
+- Anteil der Zeit in Ordnung / Warnung / Kritisch im gewählten Zeitraum, Spitzen- und Tiefstwerte mit Zeitpunkt
+- Quelle wählbar: dieser Rechner oder ein **entfernter Server** aus der Server-Liste (aufgezeichnet wird, solange diese App läuft)
+- **CSV-Export** des gewählten Zeitraums (Excel-tauglich)
+- Ablage lokal in einfachen CSV-Dateien unter `C:\ProgramData\ServerManagerPro\history` (etwa 120 KB pro Tag und Quelle), keine Datenbank; ältere Tage werden automatisch gelöscht. Aufbewahrung und „Verlauf löschen“ unter *Einstellungen*
+
+Der Verlauf entsteht nur, solange die App läuft (am einfachsten im Hintergrund mit `--overlay`); dafür misst sie dann auch bei geschlossenem Fenster etwa einmal pro Minute die Gesundheitsprüfung.
+
+![Verlauf](docs/img/verlauf.png)
+
 ## Alarme und Fernzugriff ohne eigenen Server
 
 **Alarme** (*Alarme & Zugriff*): Die App meldet Warnungen und kritische Probleme nach außen – an **ntfy** (Handy), **Microsoft Teams** (Workflow-Webhook), **Slack**, **Telegram**, einen **eigenen Webhook** (JSON) oder als **Sprechblase am Tray-Symbol**. Es werden nur ausgehende Verbindungen aufgebaut, es gibt keinen offenen Port. Damit sie nützlich und nicht lästig sind:
@@ -90,6 +104,7 @@ Die veröffentlichten EXE-Dateien sind **nicht signiert** (dafür braucht es ein
 
 ## Grenzen
 
+- **Verlauf:** Die Speicherung ist mit synthetischen Daten geprüft (Mittelwerte, Zusammenfassung, Lücken, Aufbewahrung, beschädigte Zeilen, Zustandswechsel). Ein mehrwöchiger Dauerlauf mit echten Messwerten ist nicht erfolgt. Die Wechsel-Liste zeigt nur Änderungen, die während des Laufs der App auftraten; Prüfungen, die beim Start bereits auffällig sind, erscheinen als „Beim Start → …“.
 - **Alarme:** Die Kanäle sind gegen einen lokalen Testserver geprüft (Format, Zeichensatz, Token, Ablauf mit Verzögerung/Erinnerung/Entwarnung/Limit). Gegen die echten Dienste (ntfy, Teams, Slack, Telegram) habe ich sie nicht ausprobiert; bei Teams gilt das Workflow-Webhook-Format. Die Sprechblase am Tray ist nicht automatisch getestet. Ohne laufende App gibt es keine Meldungen, und es gibt (noch) keinen Verlauf der Messwerte.
 - **Status-Zugriff:** getestet mit TLS, Token-Prüfung und Fingerabdruck auf dem eigenen Rechner (Loopback), nicht über ein echtes VPN. Das Token steht in der Adresse der Webseite (`?token=`) – nur im VPN verwenden.
 

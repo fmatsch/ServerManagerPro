@@ -17,6 +17,7 @@ public partial class App : Application
     public static MainWindow MainWin = null!;
     public static AlertEngine Alerts = null!;
     public static RemoteMonitor Remotes = null!;
+    public static HistoryRecorder History = null!;
     public static string ServeError = "";
     static StatusServer? _serve;
 
@@ -47,6 +48,15 @@ public partial class App : Application
             return;
         }
 
+        int hi = Array.IndexOf(Args, "--historytest");
+        if (hi >= 0 && hi + 1 < Args.Length)
+        {
+            string ht;
+            try { ht = SelfChecks.HistoryTest(); } catch (Exception ex) { ht = "Fehler: " + ex; }
+            File.WriteAllText(Args[hi + 1], ht);
+            Shutdown();
+            return;
+        }
         int al = Array.IndexOf(Args, "--alerttest"), sv = Array.IndexOf(Args, "--servetest");
         if ((al >= 0 && al + 1 < Args.Length) || (sv >= 0 && sv + 1 < Args.Length))
         {
@@ -84,11 +94,13 @@ public partial class App : Application
             Settings.OverlayMetrics = new() { "health", "cpu", "ram", "disk", "net", "free", "topproc", "backup", "dhcp" };
 
         Monitor = new HealthMonitor(Settings) { Demo = Args.Contains("--demo") };
+        if (Args.Contains("--demo")) DemoHistory.Seed();   // Demo-Verlauf im Temp-Ordner
         Alerts = new AlertEngine(Settings);
         Alerts.Tray += (title, text) => Current.Dispatcher.BeginInvoke(() =>
             _tray?.ShowBalloonTip(10000, title, text, title.Contains("Kritisch") || title.Contains("Critical") ? System.Windows.Forms.ToolTipIcon.Error : System.Windows.Forms.ToolTipIcon.Warning));
         Monitor.HealthUpdated += s => Alerts.Process(Environment.MachineName, s.Checks);
         Remotes = new RemoteMonitor(Settings, Alerts);
+        History = new HistoryRecorder(Monitor, Remotes, Settings);
         Overlay = new OverlayWindow(Monitor, Settings);
         Overlay.ToggleRequested += ToggleOverlay;
         Overlay.MainRequested += ShowMain;
@@ -120,6 +132,7 @@ public partial class App : Application
     {
         _tray?.Dispose();
         _serve?.Dispose();
+        History?.Dispose();
         Remotes?.Dispose();
         Monitor?.Dispose();
         base.OnExit(e);
@@ -133,7 +146,7 @@ public partial class App : Application
         bool main = MainWin != null && MainWin.IsVisible, ov = Overlay != null && Overlay.IsShown;
         var sel = OverlayWindow.Catalog.Where(c => Settings.OverlayMetrics.Contains(c.key)).ToList();
         // Alarme und Status-Zugriff brauchen die Gesundheitsprüfung auch ohne sichtbares Fenster
-        Monitor.NeedHealth = main || (ov && sel.Any(c => c.needsHealth)) || Settings.AlertsEnabled || Settings.ServeEnabled;
+        Monitor.NeedHealth = main || (ov && sel.Any(c => c.needsHealth)) || Settings.AlertsEnabled || Settings.ServeEnabled || Settings.HistoryEnabled;
         Monitor.NeedProcesses = main || (ov && sel.Any(c => c.needsProcs));
         Monitor.Relaxed = !main;
         Monitor.IncludeCores = main;

@@ -55,6 +55,11 @@ public sealed class AppSettings
     /// <summary>Beim Start und täglich bei GitHub nach einer neuen Version fragen (aus Datenschutzgründen standardmäßig aus).</summary>
     public bool CheckUpdates { get; set; }
 
+    // ---- Verlauf ----
+    public bool HistoryEnabled { get; set; } = true;
+    /// <summary>So viele Tage bleiben Minutenwerte und Zustandswechsel erhalten.</summary>
+    public int HistoryDays { get; set; } = 30;
+
     // ---- Alarme ----
     public bool AlertsEnabled { get; set; }
     /// <summary>Ein Problem muss so lange bestehen, bevor gemeldet wird (verhindert Fehlalarme bei kurzen Spitzen).</summary>

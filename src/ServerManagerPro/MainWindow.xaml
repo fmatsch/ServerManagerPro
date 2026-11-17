@@ -56,6 +56,7 @@
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListBoxItem Content="Übersicht" Tag="PageOverview"/>
                 <ListBoxItem Content="Leistung" Tag="PagePerf"/>
+                <ListBoxItem Content="Verlauf" Tag="PageHistory"/>
                 <ListBoxItem Content="Prozesse" Tag="PageProcs"/>
                 <ListBoxItem Content="Dienste" Tag="PageServices"/>
                 <ListBoxItem Content="Datenbanken" Tag="PageDb"/>
@@ -549,6 +550,78 @@
                     </DataGrid>
                 </DockPanel>
 
+                <!-- Verlauf -->
+                <ScrollViewer x:Name="PageHistory" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel>
+                        <WrapPanel Margin="0,0,0,8">
+                            <TextBlock Text="Quelle" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                            <ComboBox x:Name="HistSource" Width="230" SelectionChanged="OnHistoryChanged" AutomationProperties.Name="Quelle des Verlaufs"/>
+                            <TextBlock Text="Zeitraum" VerticalAlignment="Center" Margin="18,0,8,0"/>
+                            <ComboBox x:Name="HistRange" Width="170" SelectedIndex="1" SelectionChanged="OnHistoryChanged" AutomationProperties.Name="Zeitraum des Verlaufs">
+                                <ComboBoxItem Content="Letzte 6 Stunden"/>
+                                <ComboBoxItem Content="Letzte 24 Stunden"/>
+                                <ComboBoxItem Content="Letzte 7 Tage"/>
+                                <ComboBoxItem Content="Letzte 30 Tage"/>
+                            </ComboBox>
+                            <Button Content="CSV exportieren …" Margin="18,0,0,0" Click="OnHistoryExport"/>
+                        </WrapPanel>
+                        <TextBlock x:Name="HistInfo" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="2,0,0,10"/>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Zustand im Zeitraum" FontWeight="SemiBold" FontSize="15"/>
+                                <TextBlock x:Name="HistAvail" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+                        <UniformGrid x:Name="HistGrid" Columns="2">
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="CPU" FontWeight="SemiBold" FontSize="15"/>
+                                    <TextBlock x:Name="HistCpuText" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                    <c:HistoryChart x:Name="HistCpu" Height="170" Stroke="{x:Static c:Palette.Accent}" AutomationProperties.Name="CPU-Verlauf über die Zeit"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Arbeitsspeicher" FontWeight="SemiBold" FontSize="15"/>
+                                    <TextBlock x:Name="HistMemText" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                    <c:HistoryChart x:Name="HistMem" Height="170" Stroke="{x:Static c:Palette.Violet}" AutomationProperties.Name="Speicher-Verlauf über die Zeit"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="HistDiskCard" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Datenträger-Aktivität" FontWeight="SemiBold" FontSize="15"/>
+                                    <TextBlock x:Name="HistDiskText" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                    <c:HistoryChart x:Name="HistDisk" Height="170" Stroke="{x:Static c:Palette.Ok}" AutomationProperties.Name="Datenträger-Verlauf über die Zeit"/>
+                                </StackPanel>
+                            </Border>
+                            <Border x:Name="HistNetCard" Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Netzwerk" FontWeight="SemiBold" FontSize="15"/>
+                                    <TextBlock x:Name="HistNetText" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                    <c:HistoryChart x:Name="HistNet" Height="170" Stroke="{x:Static c:Palette.Orange}" AutomationProperties.Name="Netzwerk-Verlauf über die Zeit"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Gesundheitswert" FontWeight="SemiBold" FontSize="15"/>
+                                <TextBlock x:Name="HistScoreText" Style="{StaticResource Muted}" FontSize="12" Margin="0,0,0,4" TextWrapping="Wrap"/>
+                                <c:HistoryChart x:Name="HistScore" Height="150" Stroke="{x:Static c:Palette.Info}" AutomationProperties.Name="Verlauf des Gesundheitswerts"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Zustandswechsel" FontWeight="SemiBold" FontSize="15" Margin="2,4,0,8"/>
+                        <DataGrid x:Name="HistChanges" MaxHeight="380" Margin="0,0,12,16" AutomationProperties.Name="Zustandswechsel">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zeit" Binding="{Binding Time, StringFormat=g}" Width="160"/>
+                                <DataGridTextColumn Header="Wechsel" Binding="{Binding Change}" Width="190"/>
+                                <DataGridTextColumn Header="Kategorie" Binding="{Binding Category}" Width="1*"/>
+                                <DataGridTextColumn Header="Prüfung" Binding="{Binding Name}" Width="1.5*"/>
+                                <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="3*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
+
                 <!-- Server (entfernte Server) -->
                 <DockPanel x:Name="PageServers" Visibility="Collapsed">
                     <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
@@ -685,6 +758,15 @@
                                 </ComboBox>
                                 <CheckBox x:Name="UpdCheck" Margin="24,0,0,0" VerticalAlignment="Center" Content="Automatisch nach Updates suchen (GitHub, einmal täglich)" Checked="OnUpdateOptionChanged" Unchecked="OnUpdateOptionChanged"/>
                                 <Button Content="Nach Updates suchen" Margin="12,0,0,0" Click="OnCheckUpdateNow"/>
+                            </WrapPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <WrapPanel>
+                                <CheckBox x:Name="HistEnabled" VerticalAlignment="Center" Content="Verlauf aufzeichnen" Checked="OnHistoryOptionChanged" Unchecked="OnHistoryOptionChanged"/>
+                                <TextBlock Text="Aufbewahren (Tage)" VerticalAlignment="Center" Margin="12,0,6,0"/>
+                                <TextBox x:Name="HistDays" Width="46" LostFocus="OnHistoryOptionChanged" AutomationProperties.Name="Aufbewahrung in Tagen"/>
+                                <Button Content="Verlauf löschen" Margin="18,0,0,0" Click="OnHistoryClear"/>
+                                <TextBlock x:Name="HistStoreInfo" Style="{StaticResource Muted}" VerticalAlignment="Center" Margin="6,0,0,0"/>
                             </WrapPanel>
                         </Border>
                         <Border Style="{StaticResource Card}">

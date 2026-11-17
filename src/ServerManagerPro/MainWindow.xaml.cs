@@ -77,6 +77,7 @@ public partial class MainWindow : Window
         LoadOverlayUi();
         LoadLanguageUi();
         LoadAlertsUi();
+        LoadHistoryUi();
         StartUpdateTimer();
         App.Overlay.Moved += () => Dispatcher.BeginInvoke(() => { _ovLoading = true; OvCorner.SelectedIndex = 4; _ovLoading = false; });
         App.Alerts.HistoryChanged += () => Dispatcher.BeginInvoke(RefreshAlertHistory);
@@ -239,6 +240,14 @@ public partial class MainWindow : Window
     void HandleCommandLine()
     {
         var a = App.Args;
+        int ri = Array.IndexOf(a, "--range");
+        if (ri >= 0 && ri + 1 < a.Length && int.TryParse(a[ri + 1], out int rg)) HistRange.SelectedIndex = Math.Clamp(rg, 0, 3);
+        int so = Array.IndexOf(a, "--source");
+        if (so >= 0 && so + 1 < a.Length)
+        {
+            var item = HistSource.Items.Cast<ComboBoxItem>().FirstOrDefault(x => (string)x.Tag == a[so + 1]);
+            if (item != null) HistSource.SelectedItem = item;
+        }
         int pi = Array.IndexOf(a, "--page");
         if (pi >= 0 && pi + 1 < a.Length && int.TryParse(a[pi + 1], out int page)) Nav.SelectedIndex = Math.Clamp(page, 0, _pages.Length - 1);
         int si = Array.IndexOf(a, "--screenshot");
@@ -249,6 +258,9 @@ public partial class MainWindow : Window
             t.Tick += (_, _) =>
             {
                 t.Stop();
+                int hv = Array.IndexOf(a, "--hover");
+                if (hv >= 0 && hv + 1 < a.Length && double.TryParse(a[hv + 1], System.Globalization.CultureInfo.InvariantCulture, out var frac))
+                { HistCpu.DebugHover(frac); HistScore.DebugHover(frac); UpdateLayout(); }
                 var root = (FrameworkElement)Content;
                 var rtb = new RenderTargetBitmap((int)root.ActualWidth, (int)root.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                 rtb.Render(root);
@@ -280,6 +292,7 @@ public partial class MainWindow : Window
     {
         if (_pages == null) return;
         if (_ultra) RebuildNavPick();
+        if (_ready && Nav.SelectedIndex >= 0 && Nav.SelectedIndex < _pages.Length && ReferenceEquals(_pages[Nav.SelectedIndex], PageHistory)) LoadHistory();
         for (int i = 0; i < _pages.Length; i++)
             _pages[i].Visibility = i == Nav.SelectedIndex ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -799,7 +812,8 @@ public partial class MainWindow : Window
         }
         if (ctrl && e.Key == Key.F)
         {
-            TextBox? box = Nav.SelectedIndex switch { 2 => ProcFilter, 3 => SvcFilter, 7 => NetFilter, 10 => IpFilter, _ => null };
+            var cur = Nav.SelectedIndex >= 0 && Nav.SelectedIndex < _pages.Length ? _pages[Nav.SelectedIndex] : null;
+            TextBox? box = ReferenceEquals(cur, PageProcs) ? ProcFilter : ReferenceEquals(cur, PageServices) ? SvcFilter : ReferenceEquals(cur, PageNet) ? NetFilter : ReferenceEquals(cur, PageDhcp) ? IpFilter : null;
             if (box != null) { box.Focus(); box.SelectAll(); e.Handled = true; }
         }
         else if (e.Key == Key.Escape && Keyboard.FocusedElement is TextBox tb && tb.Text.Length > 0 && (tb == ProcFilter || tb == SvcFilter || tb == NetFilter || tb == IpFilter))
@@ -919,5 +933,147 @@ public partial class MainWindow : Window
         var list = r.Payload.Checks.OrderBy(c => Rank(c.Status)).ThenBy(c => c.Category).ToList();
         if (Loc.English) list = list.Select(c => new StatusCheck(Loc.T(c.Category), Loc.T(c.Name), c.Status, Loc.T(c.Detail))).ToList();
         RemoteChecksGrid.ItemsSource = list;
+    }
+
+    // ---------- Verlauf ----------
+    bool _histBusy;
+    DispatcherTimer? _histTimer;
+
+    string HistKey => (HistSource.SelectedItem as ComboBoxItem)?.Tag as string ?? "local";
+
+    (DateTime from, DateTime to) HistRangeValues()
+    {
+        var to = DateTime.Now;
+        return (HistRange.SelectedIndex switch { 0 => to.AddHours(-6), 2 => to.AddDays(-7), 3 => to.AddDays(-30), _ => to.AddHours(-24) }, to);
+    }
+
+    void LoadHistoryUi()
+    {
+        RefreshHistorySources();
+        _ovLoading = true;
+        HistEnabled.IsChecked = _cfg.HistoryEnabled;
+        HistDays.Text = _cfg.HistoryDays.ToString();
+        _ovLoading = false;
+        _histTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60) };
+        _histTimer.Tick += (_, _) => { if (IsVisible && Nav.SelectedIndex >= 0 && ReferenceEquals(_pages[Nav.SelectedIndex], PageHistory)) LoadHistory(); };
+        _histTimer.Start();
+        UpdateHistoryStoreInfo();
+    }
+
+    void RefreshHistorySources()
+    {
+        string? sel = HistKeyOrNull();
+        HistSource.Items.Clear();
+        HistSource.Items.Add(new ComboBoxItem { Content = Environment.MachineName + " (" + Loc.T("dieser Rechner") + ")", Tag = "local" });
+        foreach (var line in _cfg.RemoteServers)
+        {
+            var name = line.Split('|')[0].Trim();
+            if (name.Length > 0) HistSource.Items.Add(new ComboBoxItem { Content = name, Tag = name });
+        }
+        if (App.Args.Contains("--demo")) { HistSource.Items.Add(new ComboBoxItem { Content = "SRV-FILE01", Tag = "SRV-FILE01" }); }
+        int i = sel == null ? 0 : HistSource.Items.Cast<ComboBoxItem>().ToList().FindIndex(x => (string)x.Tag == sel);
+        HistSource.SelectedIndex = Math.Max(0, i);
+    }
+
+    string? HistKeyOrNull() => (HistSource.SelectedItem as ComboBoxItem)?.Tag as string;
+
+    void OnHistoryChanged(object sender, SelectionChangedEventArgs e) { if (_ready && IsVisible) LoadHistory(); }
+
+
+    async void LoadHistory()
+    {
+        if (_histBusy || !_ready) return;
+        _histBusy = true;
+        try
+        {
+            var (from, to) = HistRangeValues();
+            string key = HistKey;
+            var (data, raw, counts, changes) = await Task.Run(() =>
+            {
+                var d = HistoryStore.Query(key, from, to, 360, out int rc, out int[] oc);
+                return (d, rc, oc, HistoryStore.ReadChanges(key, from, to));
+            });
+            bool local = key == "local";
+            HistDiskCard.Visibility = HistNetCard.Visibility = local ? Visibility.Visible : Visibility.Collapsed;
+
+            IEnumerable<ChartPoint> Pts(Func<Sample, double> avg, Func<Sample, double> max) => data.Select(s => new ChartPoint(s.T, avg(s), max(s)));
+            HistCpu.SetData(Pts(s => s.CpuAvg, s => s.CpuMax), from, to);
+            HistMem.SetData(Pts(s => s.MemAvg, s => s.MemMax), from, to);
+            HistDisk.SetData(Pts(s => s.DiskAvg, s => s.DiskMax), from, to);
+            HistNet.SetData(data.Select(s => new ChartPoint(s.T, s.NetRx + s.NetTx, double.NaN)), from, to);
+            HistNet.Format = v => Rate(v); HistNet.YMax = 0; HistNet.ShowMax = false;
+            HistScore.SetData(Pts(s => s.Score, s => double.NaN), from, to);
+            HistScore.Format = v => $"{v:0}"; HistScore.ShowMax = false;
+            foreach (var ch in new[] { HistCpu, HistMem, HistDisk, HistScore, HistNet }) ch.EmptyText = Loc.T("Keine Daten im gewählten Zeitraum");
+
+            string Stat(Func<Sample, double> avg, Func<Sample, double> max, Func<double, string> f)
+            {
+                var a = data.Where(s => !double.IsNaN(avg(s))).ToList();
+                if (a.Count == 0) return Loc.T("keine Daten");
+                var peak = data.Where(s => !double.IsNaN(max(s))).OrderByDescending(max).FirstOrDefault();
+                return $"Ø {f(a.Average(avg))}" + (peak != null ? " · " + Loc.T("Spitze") + $" {f(max(peak))} ({peak.T:ddd HH:mm})" : "");
+            }
+            HistCpuText.Text = Stat(s => s.CpuAvg, s => s.CpuMax, v => $"{v:0} %");
+            HistMemText.Text = Stat(s => s.MemAvg, s => s.MemMax, v => $"{v:0} %");
+            HistDiskText.Text = Stat(s => s.DiskAvg, s => s.DiskMax, v => $"{v:0} %");
+            HistNetText.Text = data.Count == 0 ? Loc.T("keine Daten") : $"Ø ↓ {Rate(data.Average(s => s.NetRx))}  ↑ {Rate(data.Average(s => s.NetTx))}";
+            var worst = data.Where(s => !double.IsNaN(s.Score)).OrderBy(s => s.Score).FirstOrDefault();
+            HistScoreText.Text = worst == null ? Loc.T("keine Daten") : $"Ø {data.Where(s => !double.IsNaN(s.Score)).Average(s => s.Score):0} · " + Loc.T("Tiefstwert") + $" {worst.Score:0} ({worst.T:ddd dd.MM. HH:mm})";
+
+            int total = counts.Sum();
+            HistAvail.Text = total == 0 ? Loc.T("Noch keine Daten.")
+                : string.Format(Loc.T("In Ordnung {0} % · Warnung {1} % · Kritisch {2} %  (aus {3} Messpunkten)"), (counts[0] * 100.0 / total).ToString("0.0"), (counts[1] * 100.0 / total).ToString("0.0"), (counts[2] * 100.0 / total).ToString("0.0"), total);
+
+            var (first, bytes) = HistoryStore.Info(key);
+            HistInfo.Text = !_cfg.HistoryEnabled ? Loc.T("Der Verlauf ist ausgeschaltet (Einstellungen).")
+                : first == null ? Loc.T("Noch keine Daten. Der Verlauf wird aufgezeichnet, solange die App läuft (auch im Hintergrund).")
+                : string.Format(Loc.T("Daten seit {0} · {1} Minutenwerte im Zeitraum · Speicherplatz {2} · Aufbewahrung {3} Tage. Lücken entstehen, wenn die App nicht lief."), first.Value.ToString("d"), raw, Fmt.Bytes(bytes), _cfg.HistoryDays);
+
+            if (Loc.English) foreach (var c in changes) { c.Category = Loc.T(c.Category); c.Name = Loc.T(c.Name); c.Detail = Loc.T(c.Detail); }
+            HistChanges.ItemsSource = changes;
+        }
+        catch { }
+        finally { _histBusy = false; }
+    }
+
+    void OnHistoryExport(object sender, RoutedEventArgs e)
+    {
+        var (from, to) = HistRangeValues();
+        string key = HistKey;
+        var dlg = new SaveFileDialog { Filter = "CSV (*.csv)|*.csv", FileName = $"Verlauf-{HistoryStore.SourceKey(key == "local" ? Environment.MachineName : key)}-{DateTime.Now:yyyyMMdd-HHmm}.csv" };
+        if (dlg.ShowDialog(this) != true) return;
+        var rows = HistoryStore.ReadRaw(key, from, to);
+        var ci = System.Globalization.CultureInfo.CurrentCulture;
+        string F(double d) => double.IsNaN(d) ? "" : d.ToString("0.##", ci);
+        var sb = new StringBuilder();
+        sb.AppendLine("Zeit;CPU %;CPU max %;RAM %;RAM max %;Datenträger %;Datenträger max %;Netz ein B/s;Netz aus B/s;Gesundheit;Status;DB-Verbindungen;RDP-Sitzungen");
+        foreach (var s in rows)
+            sb.AppendLine(string.Join(';', s.T.ToString("yyyy-MM-dd HH:mm:ss"), F(s.CpuAvg), F(s.CpuMax), F(s.MemAvg), F(s.MemMax), F(s.DiskAvg), F(s.DiskMax), F(s.NetRx), F(s.NetTx), F(s.Score), s.Overall, F(s.Conn), F(s.Rdp)));
+        File.WriteAllText(dlg.FileName, sb.ToString(), new UTF8Encoding(true));
+        HistInfo.Text = string.Format(Loc.T("{0} Zeilen exportiert: {1}"), rows.Count, dlg.FileName);
+    }
+
+    void OnHistoryOptionChanged(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _ovLoading) return;
+        _cfg.HistoryEnabled = HistEnabled.IsChecked == true;
+        _cfg.HistoryDays = Math.Clamp(I(HistDays.Text, 30), 1, 3650);
+        HistDays.Text = _cfg.HistoryDays.ToString();
+        _cfg.Save();
+        App.UpdateDemand();
+        UpdateHistoryStoreInfo();
+    }
+
+    void OnHistoryClear(object sender, RoutedEventArgs e)
+    {
+        if (MessageBox.Show(this, Loc.T("Den gesamten aufgezeichneten Verlauf löschen? Das kann nicht rückgängig gemacht werden."), "ServerManagerPro", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        HistoryStore.Clear();
+        UpdateHistoryStoreInfo();
+    }
+
+    void UpdateHistoryStoreInfo()
+    {
+        var (first, bytes) = HistoryStore.Info("local");
+        HistStoreInfo.Text = first == null ? "" : string.Format(Loc.T("seit {0}, {1}"), first.Value.ToString("d"), Fmt.Bytes(bytes));
     }
 }

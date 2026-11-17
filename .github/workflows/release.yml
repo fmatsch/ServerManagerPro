@@ -45,9 +45,11 @@ jobs:
         run: |
           dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --alerttest alert.txt
           dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --servetest serve.txt
+          dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --historytest history.txt
+          Get-Content history.txt
           Get-Content alert.txt | Select-Object -First 20
           Get-Content serve.txt
-          $a = Get-Content alert.txt -Raw; $v = Get-Content serve.txt -Raw
+          $a = Get-Content alert.txt -Raw; $v = Get-Content serve.txt -Raw; $h = Get-Content history.txt -Raw
           $must = @(
             @($a, '(?m)^3 .*: 5 Anfrage'),
             @($a, '(?m)^4 .*: 0 Anfrage'),
@@ -57,7 +59,12 @@ jobs:
             @($v, 'GET /api/status ohne Token:\s+401'),
             @($v, 'POST /api/status mit Token:\s+405'),
             @($v, 'RemoteMonitor Testserver\s+ok=True'),
-            @($v, 'RemoteMonitor Falscher-Pin\s+ok=False')
+            @($v, 'RemoteMonitor Falscher-Pin\s+ok=False'),
+            @($h, 'zusammengefasst=\d+ \(erwartet h'),
+            @($h, 'NaN bleibt NaN \(Datentr.ger\): True'),
+            @($h, 'Zustandswechsel: 4 '),
+            @($h, 'nicht .lter als gestern: True'),
+            @($h, 'Nach L.schen: 0 Werte')
           )
           foreach ($m in $must) { if ($m[0] -notmatch $m[1]) { throw "Test fehlgeschlagen: $($m[1])" } }
 
