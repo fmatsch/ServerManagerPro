@@ -15,6 +15,10 @@ public partial class App : Application
     public static HealthMonitor Monitor = null!;
     public static OverlayWindow Overlay = null!;
     public static MainWindow MainWin = null!;
+    public static AlertEngine Alerts = null!;
+    public static RemoteMonitor Remotes = null!;
+    public static string ServeError = "";
+    static StatusServer? _serve;
 
     static System.Windows.Forms.NotifyIcon? _tray;
     static System.Windows.Forms.ToolStripMenuItem? _miOverlay;
@@ -43,6 +47,16 @@ public partial class App : Application
             return;
         }
 
+        int al = Array.IndexOf(Args, "--alerttest"), sv = Array.IndexOf(Args, "--servetest");
+        if ((al >= 0 && al + 1 < Args.Length) || (sv >= 0 && sv + 1 < Args.Length))
+        {
+            string text;
+            try { text = al >= 0 ? Task.Run(SelfChecks.AlertTest).GetAwaiter().GetResult() : Task.Run(SelfChecks.ServeTest).GetAwaiter().GetResult(); }
+            catch (Exception ex) { text = "Fehler: " + ex; }
+            File.WriteAllText(Args[(al >= 0 ? al : sv) + 1], text);
+            Shutdown();
+            return;
+        }
         int ut = Array.IndexOf(Args, "--updatetest");
         if (ut >= 0 && ut + 1 < Args.Length)
         {
@@ -70,6 +84,11 @@ public partial class App : Application
             Settings.OverlayMetrics = new() { "health", "cpu", "ram", "disk", "net", "free", "topproc", "backup", "dhcp" };
 
         Monitor = new HealthMonitor(Settings) { Demo = Args.Contains("--demo") };
+        Alerts = new AlertEngine(Settings);
+        Alerts.Tray += (title, text) => Current.Dispatcher.BeginInvoke(() =>
+            _tray?.ShowBalloonTip(10000, title, text, title.Contains("Kritisch") || title.Contains("Critical") ? System.Windows.Forms.ToolTipIcon.Error : System.Windows.Forms.ToolTipIcon.Warning));
+        Monitor.HealthUpdated += s => Alerts.Process(Environment.MachineName, s.Checks);
+        Remotes = new RemoteMonitor(Settings, Alerts);
         Overlay = new OverlayWindow(Monitor, Settings);
         Overlay.ToggleRequested += ToggleOverlay;
         Overlay.MainRequested += ShowMain;
@@ -85,7 +104,9 @@ public partial class App : Application
         if (!overlayOnly) MainWin.Show();
         if (overlayOnly || Settings.OverlayOnStart || Args.Contains("--with-overlay")) Overlay.ShowOverlay();
         UpdateDemand();
+        ApplyServe();
         Monitor.Start();
+        Remotes.Start();
     }
 
     /// <summary>Abmelden/Herunterfahren darf nie vom "Ins Tray schließen" blockiert werden.</summary>
@@ -98,6 +119,8 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _tray?.Dispose();
+        _serve?.Dispose();
+        Remotes?.Dispose();
         Monitor?.Dispose();
         base.OnExit(e);
     }
@@ -109,7 +132,8 @@ public partial class App : Application
         if (Monitor == null) return;
         bool main = MainWin != null && MainWin.IsVisible, ov = Overlay != null && Overlay.IsShown;
         var sel = OverlayWindow.Catalog.Where(c => Settings.OverlayMetrics.Contains(c.key)).ToList();
-        Monitor.NeedHealth = main || (ov && sel.Any(c => c.needsHealth));
+        // Alarme und Status-Zugriff brauchen die Gesundheitsprüfung auch ohne sichtbares Fenster
+        Monitor.NeedHealth = main || (ov && sel.Any(c => c.needsHealth)) || Settings.AlertsEnabled || Settings.ServeEnabled;
         Monitor.NeedProcesses = main || (ov && sel.Any(c => c.needsProcs));
         Monitor.Relaxed = !main;
         Monitor.IncludeCores = main;
@@ -145,6 +169,26 @@ public partial class App : Application
         _exiting = true;
         try { Overlay.Close(); } catch { }
         Current.Shutdown();
+    }
+
+    // ---------- Status-Zugriff ----------
+    public static string NewToken() => Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(24)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+    /// <summary>Startet oder stoppt den schreibgeschützten Status-Zugriff gemäß den Einstellungen.</summary>
+    public static void ApplyServe()
+    {
+        _serve?.Dispose(); _serve = null; ServeError = "";
+        if (!Settings.ServeEnabled) return;
+        try
+        {
+            if (string.IsNullOrEmpty(Settings.ServeToken)) { Settings.ServeToken = NewToken(); Settings.Save(); }
+            if (!System.Net.IPAddress.TryParse(Settings.ServeBind, out var ip)) ip = System.Net.IPAddress.Loopback;
+            var cert = StatusCert.GetOrCreate();
+            _serve = new StatusServer(ip, Settings.ServePort, Settings.ServeToken, cert,
+                () => Monitor.Latest is { } s ? StatusPayload.From(s, Monitor.LastMetrics) : null);
+            _serve.Start();
+        }
+        catch (Exception ex) { ServeError = ex.GetBaseException().Message; _serve = null; }
     }
 
     // ---------- Tray ----------

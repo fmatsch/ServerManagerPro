@@ -40,6 +40,27 @@ jobs:
           dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --selftest selftest.txt
           Get-Content selftest.txt | Select-Object -First 40
 
+      - name: Tests Alarme und Status-Zugriff (nur lokale Testserver)
+        shell: pwsh
+        run: |
+          dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --alerttest alert.txt
+          dotnet src/ServerManagerPro/bin/Release/net8.0-windows/ServerManagerPro.dll --servetest serve.txt
+          Get-Content alert.txt | Select-Object -First 20
+          Get-Content serve.txt
+          $a = Get-Content alert.txt -Raw; $v = Get-Content serve.txt -Raw
+          $must = @(
+            @($a, '(?m)^3 .*: 5 Anfrage'),
+            @($a, '(?m)^4 .*: 0 Anfrage'),
+            @($a, '(?m)^7 .*: 0 Anfrage'),
+            @($a, '11 Testnachricht: ntfy: ok; slack: ok; teams: ok; telegram: ok; webhook: ok'),
+            @($v, 'GET /api/status mit Token \(Bearer\):\s+200'),
+            @($v, 'GET /api/status ohne Token:\s+401'),
+            @($v, 'POST /api/status mit Token:\s+405'),
+            @($v, 'RemoteMonitor Testserver\s+ok=True'),
+            @($v, 'RemoteMonitor Falscher-Pin\s+ok=False')
+          )
+          foreach ($m in $must) { if ($m[0] -notmatch $m[1]) { throw "Test fehlgeschlagen: $($m[1])" } }
+
       - name: Publish (self-contained, eine Datei)
         run: dotnet publish src/ServerManagerPro -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -o dist
 

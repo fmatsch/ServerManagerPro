@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ServerManagerPro</AssemblyName>
     <RootNamespace>ServerManagerPro</RootNamespace>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
     <Product>ServerManagerPro</Product>
     <Company>fmatsch</Company>
     <Description>Task-Manager mit Server-Gesundheitscheck für Windows Server 2016+, Windows 10 und 11</Description>

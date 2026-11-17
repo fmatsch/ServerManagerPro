@@ -65,7 +65,9 @@
                 <ListBoxItem Content="Sicherheit &amp; Rollen" Tag="PageDetails"/>
                 <ListBoxItem x:Name="NavAd" Content="Active Directory" Tag="PageAd" Visibility="Collapsed"/>
                 <ListBoxItem x:Name="NavDhcp" Content="DHCP &amp; IPs" Tag="PageDhcp" Visibility="Collapsed"/>
+                <ListBoxItem x:Name="NavServers" Content="Server" Tag="PageServers" Visibility="Collapsed"/>
                 <ListBoxItem Content="Ereignisse" Tag="PageEvents"/>
+                <ListBoxItem Content="Alarme &amp; Zugriff" Tag="PageAlerts"/>
                 <ListBoxItem Content="Einstellungen" Tag="PageSettings"/>
             </ListBox>
 
@@ -546,6 +548,107 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
+
+                <!-- Server (entfernte Server) -->
+                <DockPanel x:Name="PageServers" Visibility="Collapsed">
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Übersicht über diesen Rechner und alle entfernten Server, die ihren Status-Zugriff eingeschaltet haben. Auswählen zeigt die Prüfungen des Servers."/>
+                    <DataGrid x:Name="RemoteGrid" DockPanel.Dock="Top" MaxHeight="230" Margin="0,0,12,10" AutomationProperties.Name="Serverliste" SelectionChanged="OnRemoteSelected">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Server" Binding="{Binding Name}" Width="1.2*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding StatusText}" Width="130"/>
+                            <DataGridTextColumn Header="Gesundheit" Binding="{Binding ScoreText}" Width="100"/>
+                            <DataGridTextColumn Header="Stand" Binding="{Binding FetchedText}" Width="90"/>
+                            <DataGridTextColumn Header="Auffälligkeiten" Binding="{Binding Problems}" Width="2.5*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <DataGrid x:Name="RemoteChecksGrid" AutomationProperties.Name="Prüfungen des Servers">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Kategorie" Binding="{Binding Category}" Width="1*"/>
+                            <DataGridTextColumn Header="Prüfung" Binding="{Binding Name}" Width="1.5*"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                            <DataGridTextColumn Header="Details" Binding="{Binding Detail}" Width="3*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+
+                <!-- Alarme & Zugriff -->
+                <ScrollViewer x:Name="PageAlerts" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Alarme – melden, wenn etwas kaputtgeht" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,4"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Die App meldet Warnungen und kritische Probleme nach außen (Handy, Teams, Slack …). Es werden nur ausgehende Verbindungen aufgebaut. Ein Problem wird erst gemeldet, wenn es länger als die Verzögerung besteht; gemeldet wird auch, wenn es behoben ist. Die App muss dafür laufen (zum Beispiel als Overlay im Hintergrund)."/>
+                                <CheckBox x:Name="AlEnabled" Content="Alarme einschalten" Checked="OnAlertChanged" Unchecked="OnAlertChanged"/>
+                                <TextBlock Text="Ziele (eines pro Zeile)" FontWeight="SemiBold" Margin="0,6,0,4"/>
+                                <TextBox x:Name="AlTargets" AcceptsReturn="True" Height="96" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" AutomationProperties.Name="Alarmziele"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,8" FontFamily="Consolas" FontSize="12"
+                                           Text="ntfy|https://ntfy.sh/mein-geheimes-thema|Token (optional)&#10;teams|https://…Webhook-URL aus einem Teams-Workflow&#10;slack|https://hooks.slack.com/services/…&#10;telegram|BotToken|ChatId&#10;webhook|https://…  (sendet JSON)&#10;tray   (Sprechblase am Tray-Symbol dieses Rechners)"/>
+                                <WrapPanel Margin="0,0,0,6">
+                                    <TextBlock Text="Verzögerung (Min.)" VerticalAlignment="Center" Margin="0,0,6,0"/><TextBox x:Name="AlDelay" Width="46"/>
+                                    <TextBlock Text="Erinnerung alle (Std., 0 = nie)" VerticalAlignment="Center" Margin="18,0,6,0"/><TextBox x:Name="AlReminder" Width="46"/>
+                                    <TextBlock Text="Höchstens pro Stunde" VerticalAlignment="Center" Margin="18,0,6,0"/><TextBox x:Name="AlMax" Width="46"/>
+                                </WrapPanel>
+                                <CheckBox x:Name="AlOnlyCrit" Content="Nur kritische Probleme melden"/>
+                                <CheckBox x:Name="AlRecovery" Content="Auch melden, wenn ein Problem behoben ist"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                    <Button Content="Testnachricht senden" Click="OnAlertTest"/>
+                                    <TextBlock x:Name="AlResult" Style="{StaticResource Muted}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Status-Zugriff (nur lesen)" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,4"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Macht die Zusammenfassung dieses Rechners über HTTPS abrufbar, damit ihn andere Installationen und ein Browser sehen können. Es gibt nur lesenden Zugriff, nur mit Token, ohne Einstellungen und Zugangsdaten. Gedacht für ein VPN (Tailscale, WireGuard): Tragen Sie als Adresse die des VPN-Adapters ein, nicht 0.0.0.0. Die Windows-Firewall öffnet die App nicht von selbst."/>
+                                <CheckBox x:Name="SvEnabled" Content="Status-Zugriff einschalten" Checked="OnServeChanged" Unchecked="OnServeChanged"/>
+                                <WrapPanel Margin="0,4,0,6">
+                                    <TextBlock Text="Adresse" VerticalAlignment="Center" Margin="0,0,6,0"/><TextBox x:Name="SvBind" Width="130"/>
+                                    <TextBlock Text="Port" VerticalAlignment="Center" Margin="18,0,6,0"/><TextBox x:Name="SvPort" Width="60"/>
+                                    <Button Content="Neues Token" Margin="18,0,0,0" Click="OnNewToken"/>
+                                </WrapPanel>
+                                <TextBlock Text="Token" Style="{StaticResource Muted}" FontSize="11"/>
+                                <TextBox x:Name="SvToken" IsReadOnly="True" FontFamily="Consolas" Margin="0,0,0,6" AutomationProperties.Name="Token"/>
+                                <TextBlock Text="Fingerabdruck des Zertifikats (SHA-1)" Style="{StaticResource Muted}" FontSize="11"/>
+                                <TextBox x:Name="SvThumb" IsReadOnly="True" FontFamily="Consolas" Margin="0,0,0,6" AutomationProperties.Name="Fingerabdruck"/>
+                                <TextBlock Text="Adresse für den Abruf" Style="{StaticResource Muted}" FontSize="11"/>
+                                <TextBox x:Name="SvUrl" IsReadOnly="True" FontFamily="Consolas" Margin="0,0,0,6" AutomationProperties.Name="Abruf-Adresse"/>
+                                <TextBlock x:Name="SvError" Foreground="#F87171" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="Entfernte Server überwachen" FontWeight="SemiBold" FontSize="15" Margin="0,0,0,4"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                           Text="Trägt man hier Server ein, die ihren Status-Zugriff eingeschaltet haben, erscheinen sie auf der Seite „Server“; Alarme gelten dann auch für sie, samt Meldung, wenn ein Server nicht mehr antwortet."/>
+                                <TextBox x:Name="SvRemote" AcceptsReturn="True" Height="80" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" AutomationProperties.Name="Entfernte Server"/>
+                                <TextBlock Style="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0" FontFamily="Consolas" FontSize="12"
+                                           Text="Name|https://100.64.0.12:8765|Token|Fingerabdruck (SHA-1 des Zertifikats, aus dem Status-Zugriff des Servers)"/>
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Button Content="Speichern" Click="OnAlertSave" Padding="22,8"/>
+                            <TextBlock x:Name="AlSaveInfo" Style="{StaticResource Muted}" VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Letzte Alarme" FontWeight="SemiBold" FontSize="15" Margin="2,8,0,8"/>
+                        <DataGrid x:Name="AlHistory" MaxHeight="300" Margin="0,0,12,16" AutomationProperties.Name="Letzte Alarme">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Zeit" Binding="{Binding Time, StringFormat=g}" Width="130"/>
+                                <DataGridTextColumn Header="Quelle" Binding="{Binding Source}" Width="1*"/>
+                                <DataGridTextColumn Header="Stufe" Binding="{Binding Level}" Width="90"/>
+                                <DataGridTextColumn Header="Art" Binding="{Binding Event}" Width="110"/>
+                                <DataGridTextColumn Header="Meldung" Binding="{Binding Text}" Width="2*"/>
+                                <DataGridTextColumn Header="Ergebnis" Binding="{Binding Result}" Width="1.4*"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- 7: Ereignisse -->
                 <DockPanel x:Name="PageEvents" Visibility="Collapsed">

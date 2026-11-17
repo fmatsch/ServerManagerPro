@@ -55,6 +55,51 @@ public sealed class AppSettings
     /// <summary>Beim Start und täglich bei GitHub nach einer neuen Version fragen (aus Datenschutzgründen standardmäßig aus).</summary>
     public bool CheckUpdates { get; set; }
 
+    // ---- Alarme ----
+    public bool AlertsEnabled { get; set; }
+    /// <summary>Ein Problem muss so lange bestehen, bevor gemeldet wird (verhindert Fehlalarme bei kurzen Spitzen).</summary>
+    public int AlertDelayMinutes { get; set; } = 3;
+    /// <summary>Erinnerung, solange das Problem besteht (0 = nie).</summary>
+    public int AlertReminderHours { get; set; } = 12;
+    public bool AlertOnlyCritical { get; set; }
+    public bool AlertSendRecovery { get; set; } = true;
+    public int AlertMaxPerHour { get; set; } = 20;
+    /// <summary>
+    /// Ziele, eine pro Zeile: ntfy|https://ntfy.sh/Thema|Token (optional) · teams|Webhook-URL · slack|Webhook-URL ·
+    /// telegram|BotToken|ChatId · webhook|URL (JSON) · tray. Enthält Geheimnisse, daher in der Datei DPAPI-verschlüsselt.
+    /// </summary>
+    [JsonIgnore] public List<string> AlertTargets { get; set; } = new();
+    public string AlertTargetsProtected { get => ProtectLines(AlertTargets); set => AlertTargets = UnprotectLines(value); }
+
+    // ---- Status-Zugriff (schreibgeschützt) und entfernte Server ----
+    public bool ServeEnabled { get; set; }
+    /// <summary>Adresse, an der gelauscht wird. 127.0.0.1 = nur dieser Rechner; die Adresse des VPN-Adapters für Zugriff über ein VPN.</summary>
+    public string ServeBind { get; set; } = "127.0.0.1";
+    public int ServePort { get; set; } = 8765;
+    [JsonIgnore] public string ServeToken { get; set; } = "";
+    public string ServeTokenProtected { get => ProtectLines(new() { ServeToken }); set => ServeToken = UnprotectLines(value).FirstOrDefault() ?? ""; }
+    /// <summary>Entfernte Server, eine pro Zeile: Name|https://adresse:8765|Token|Fingerabdruck (SHA-1 des Zertifikats, optional).</summary>
+    [JsonIgnore] public List<string> RemoteServers { get; set; } = new();
+    public string RemoteServersProtected { get => ProtectLines(RemoteServers); set => RemoteServers = UnprotectLines(value); }
+
+    static string ProtectLines(List<string> lines)
+    {
+        var l = lines.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+        if (l.Count == 0) return "";
+        return Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(string.Join("\n", l)), null, DataProtectionScope.LocalMachine));
+    }
+
+    static List<string> UnprotectLines(string value)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(value)) return new();
+            var raw = ProtectedData.Unprotect(Convert.FromBase64String(value), null, DataProtectionScope.LocalMachine);
+            return Encoding.UTF8.GetString(raw).Split('\n', StringSplitOptions.RemoveEmptyEntries).ToList();
+        }
+        catch { return new(); }
+    }
+
     // ---- Overlay ----
     public bool OverlayOnStart { get; set; }
     /// <summary>cpu, ram, disk, net, health, free, topproc, dbconn, rdp, smb, inet, backup, dhcp, ad</summary>

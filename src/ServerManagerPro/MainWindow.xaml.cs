@@ -76,8 +76,11 @@ public partial class MainWindow : Window
         BuildOverlayUi();
         LoadOverlayUi();
         LoadLanguageUi();
+        LoadAlertsUi();
         StartUpdateTimer();
         App.Overlay.Moved += () => Dispatcher.BeginInvoke(() => { _ovLoading = true; OvCorner.SelectedIndex = 4; _ovLoading = false; });
+        App.Alerts.HistoryChanged += () => Dispatcher.BeginInvoke(RefreshAlertHistory);
+        App.Remotes.Updated += list => Dispatcher.BeginInvoke(() => UpdateServers(list));
         _ready = true;
         ApplyLayout();
 
@@ -441,6 +444,7 @@ public partial class MainWindow : Window
         AddFact(NetFacts, "Lauschende Ports", _conns.Count(c => c.Scope == NetworkCollector.ScopeListen).ToString());
         ApplyNet();
         FillAd(s.Ad);
+        if (NavServers.Visibility == Visibility.Visible) UpdateServers(App.Remotes.Last);
         RenderSections(s.Sections);
         FillDhcp(s);
 
@@ -802,5 +806,118 @@ public partial class MainWindow : Window
         {
             tb.Clear(); e.Handled = true;
         }
+    }
+
+    // ---------- Alarme, Status-Zugriff, entfernte Server ----------
+    void LoadAlertsUi()
+    {
+        _ovLoading = true;
+        AlEnabled.IsChecked = _cfg.AlertsEnabled;
+        AlTargets.Text = string.Join(Environment.NewLine, _cfg.AlertTargets);
+        AlDelay.Text = _cfg.AlertDelayMinutes.ToString();
+        AlReminder.Text = _cfg.AlertReminderHours.ToString();
+        AlMax.Text = _cfg.AlertMaxPerHour.ToString();
+        AlOnlyCrit.IsChecked = _cfg.AlertOnlyCritical;
+        AlRecovery.IsChecked = _cfg.AlertSendRecovery;
+        SvEnabled.IsChecked = _cfg.ServeEnabled;
+        SvBind.Text = _cfg.ServeBind;
+        SvPort.Text = _cfg.ServePort.ToString();
+        SvRemote.Text = string.Join(Environment.NewLine, _cfg.RemoteServers);
+        _ovLoading = false;
+        RefreshServeInfo();
+        RefreshAlertHistory();
+        NavServers.Visibility = _cfg.RemoteServers.Count > 0 || App.Args.Contains("--demo") ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    void RefreshServeInfo()
+    {
+        SvToken.Text = _cfg.ServeToken;
+        SvError.Text = App.ServeError;
+        if (_cfg.ServeEnabled && App.ServeError.Length == 0)
+        {
+            try { SvThumb.Text = StatusCert.Thumbprint(); } catch { SvThumb.Text = ""; }
+            string host = _cfg.ServeBind is "0.0.0.0" or "" ? Environment.MachineName : _cfg.ServeBind;
+            SvUrl.Text = $"https://{host}:{_cfg.ServePort}/?token={_cfg.ServeToken}";
+        }
+        else { SvThumb.Text = ""; SvUrl.Text = ""; }
+    }
+
+    void OnAlertChanged(object sender, RoutedEventArgs e) { if (_ready && !_ovLoading) AlSaveInfo.Text = "  " + Loc.T("Nicht gespeichert"); }
+    void OnServeChanged(object sender, RoutedEventArgs e) { if (_ready && !_ovLoading) AlSaveInfo.Text = "  " + Loc.T("Nicht gespeichert"); }
+
+    void CollectAlerts()
+    {
+        _cfg.AlertsEnabled = AlEnabled.IsChecked == true;
+        _cfg.AlertTargets = Lines(AlTargets.Text);
+        _cfg.AlertDelayMinutes = Math.Clamp(I(AlDelay.Text, 3), 0, 1440);
+        _cfg.AlertReminderHours = Math.Clamp(I(AlReminder.Text, 12), 0, 720);
+        _cfg.AlertMaxPerHour = Math.Clamp(I(AlMax.Text, 20), 1, 500);
+        _cfg.AlertOnlyCritical = AlOnlyCrit.IsChecked == true;
+        _cfg.AlertSendRecovery = AlRecovery.IsChecked == true;
+        _cfg.ServeEnabled = SvEnabled.IsChecked == true;
+        _cfg.ServeBind = string.IsNullOrWhiteSpace(SvBind.Text) ? "127.0.0.1" : SvBind.Text.Trim();
+        _cfg.ServePort = Math.Clamp(I(SvPort.Text, 8765), 1, 65535);
+        _cfg.RemoteServers = Lines(SvRemote.Text);
+    }
+
+    void OnAlertSave(object sender, RoutedEventArgs e)
+    {
+        CollectAlerts();
+        _cfg.Save();
+        App.ApplyServe();
+        App.UpdateDemand();
+        RefreshServeInfo();
+        NavServers.Visibility = _cfg.RemoteServers.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        AlSaveInfo.Text = "  " + (App.ServeError.Length > 0 ? App.ServeError : Loc.T("Gespeichert in {0}").Replace("{0}", AppSettings.FilePath));
+        Task.Run(() => App.Remotes.PollAll());
+    }
+
+    async void OnAlertTest(object sender, RoutedEventArgs e)
+    {
+        CollectAlerts();
+        AlResult.Text = "  " + Loc.T("Sende …");
+        var res = await App.Alerts.SendTestAsync();
+        AlResult.Text = "  " + string.Join("; ", res);
+    }
+
+    void OnNewToken(object sender, RoutedEventArgs e)
+    {
+        _cfg.ServeToken = App.NewToken();
+        _cfg.Save();
+        App.ApplyServe();
+        RefreshServeInfo();
+    }
+
+    void RefreshAlertHistory()
+    {
+        var h = App.Alerts.History;
+        if (h.Count == 0 && App.Args.Contains("--demo")) h = DemoData.AlertLog();
+        if (Loc.English) foreach (var r in h) r.Result = Loc.T(r.Result);
+        AlHistory.ItemsSource = h;
+    }
+
+    List<RemoteState> _remoteRows = new();
+
+    void UpdateServers(List<RemoteState> remotes)
+    {
+        NavServers.Visibility = _cfg.RemoteServers.Count > 0 || App.Args.Contains("--demo") ? Visibility.Visible : Visibility.Collapsed;
+        var rows = new List<RemoteState>();
+        if (App.Monitor.Latest is { } s)
+            rows.Add(new RemoteState { Name = "• " + Environment.MachineName + " (" + Loc.T("dieser Rechner") + ")", Ok = true, Fetched = DateTime.Now, Payload = StatusPayload.From(s, App.Monitor.LastMetrics) });
+        rows.AddRange(remotes);
+        if (App.Args.Contains("--demo")) rows.AddRange(DemoData.Remotes());
+        string? sel = (RemoteGrid.SelectedItem as RemoteState)?.Name;
+        _remoteRows = rows;
+        RemoteGrid.ItemsSource = rows;
+        RemoteGrid.SelectedItem = rows.FirstOrDefault(r => r.Name == sel) ?? rows.FirstOrDefault();
+    }
+
+    void OnRemoteSelected(object sender, SelectionChangedEventArgs e)
+    {
+        if (RemoteGrid.SelectedItem is not RemoteState r || r.Payload == null) { RemoteChecksGrid.ItemsSource = null; return; }
+        int Rank(string st) => st switch { "Critical" => 0, "Warning" => 1, "Unknown" => 2, "Info" => 3, _ => 4 };
+        var list = r.Payload.Checks.OrderBy(c => Rank(c.Status)).ThenBy(c => c.Category).ToList();
+        if (Loc.English) list = list.Select(c => new StatusCheck(Loc.T(c.Category), Loc.T(c.Name), c.Status, Loc.T(c.Detail))).ToList();
+        RemoteChecksGrid.ItemsSource = list;
     }
 }

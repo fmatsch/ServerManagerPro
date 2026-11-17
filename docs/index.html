@@ -159,6 +159,8 @@
     <div class="card"><h3>Gesundheitswert</h3><p>Alle Prüfungen fließen in eine Ampel und einen Wert von 0–100. Jede Auffälligkeit sagt im Klartext, was los ist.</p></div>
     <div class="card"><h3>Ein Programm, keine Installation</h3><p>Eine einzige EXE, die .NET gleich mitbringt. Auf einem Server einfach kopieren und starten.</p></div>
     <div class="card"><h3>Für Server und Arbeitsplatz</h3><p>Windows Server 2016, 2019, 2022, 2025 sowie Windows 10 und 11 (64 Bit).</p></div>
+    <div class="card"><h3>Alarme aufs Handy</h3><p>Meldungen an ntfy, Teams, Slack, Telegram oder einen Webhook – erst nach einer Verzögerung, ohne Doppelmeldungen, mit Erinnerung und Entwarnung. Nur ausgehende Verbindungen.</p></div>
+    <div class="card"><h3>Mehrere Server, ohne Server</h3><p>Jede Installation kann ihren Status schreibgeschützt per HTTPS bereitstellen (Token, VPN). Eine andere Installation zeigt alle Server auf einer Seite und meldet, wenn einer nicht mehr antwortet.</p></div>
     <div class="card"><h3>Deutsch und Englisch</h3><p>Die Oberfläche gibt es in beiden Sprachen („Automatisch“ folgt Windows). Seltene Meldungen bleiben vorerst deutsch.</p></div>
     <div class="card"><h3>Setup und Update-Prüfung</h3><p>Setup-EXE mit Startmenü-Einträgen und optionalem Overlay-Autostart. Auf Wunsch fragt die App täglich bei GitHub nach einer neuen Version und prüft vor der Installation die SHA-256-Summe.</p></div>
     <div class="card"><h3>Bedienbar ohne Maus</h3><p>F5, Strg+Ziffer für die Seiten, Strg+F für den Filter, Fokusrahmen, Namen für Screenreader und ausreichende Kontraste (mindestens 4,5:1).</p></div>
@@ -182,6 +184,7 @@
     <li><b>Backup-Erkennung:</b> Ob eine Sicherung läuft, wird aus Diensten, Prozessen, geplanten Aufgaben und dem Ereignisprotokoll abgeleitet. Eine Lösung, die nichts davon hinterlässt, sieht die App nicht – Stichwörter lassen sich in den Einstellungen ergänzen.</li>
     <li><b>Datenbanken:</b> Verbindungen werden über die TCP-Verbindungen der Datenbankprozesse gezählt (alle Engines). Die Tiefe der SQL-Server-Werte erreicht die Sicht anderer Engines noch nicht.</li>
     <li><b>Nicht signiert:</b> Setup und EXE sind nicht signiert (ohne Zertifikat), SmartScreen zeigt deshalb „Weitere Informationen → Trotzdem ausführen“. Prüfsummen stehen in <code>SHA256SUMS.txt</code> beim Release.</li>
+    <li><b>Alarme und Status-Zugriff:</b> Format, Ablauf und Token-/Zertifikatsprüfung sind gegen lokale Testserver getestet, nicht gegen die echten Dienste (ntfy, Teams, Slack, Telegram) und nicht über ein echtes VPN. Den Status-Zugriff nie ins offene Internet stellen.</li>
     <li><b>Teilweise geprüft:</b> Setup (gebaut von der CI, nicht selbst installiert), automatische Update-Installation, Bildschirmwahl des Overlays, Screenreader und Kontrastmodus.</li>
   </ul>
 

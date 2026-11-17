@@ -16,6 +16,9 @@ public sealed class HealthMonitor : IDisposable
     (AdInfo info, List<CheckResult> checks)? _ad;
     DateTime _adAt = DateTime.MinValue;
     public bool Demo { get; set; }
+    /// <summary>Letzte Messergebnisse (für Status-Zugriff und Alarme).</summary>
+    public volatile Snapshot? Latest;
+    public volatile MetricsSnapshot? LastMetrics;
 
     // Zusatzprüfungen (Sicherheit, Hardware, Rollen): langsam, im Hintergrund, alle 5 Minuten
     readonly object _extraLock = new();
@@ -62,6 +65,7 @@ public sealed class HealthMonitor : IDisposable
     {
         var m = _sampler.Sample();
         lock (_recent) { _recent.Enqueue(m); while (_recent.Count > 15) _recent.Dequeue(); }
+        LastMetrics = m;
         MetricsUpdated?.Invoke(m);
         if (NeedProcesses)
         {
@@ -189,6 +193,7 @@ public sealed class HealthMonitor : IDisposable
         snap.Events = _events.rows; snap.Checks.AddRange(_events.checks);
         _forceSlow = false;
 
+        Latest = snap;
         HealthUpdated?.Invoke(snap);
         return snap;
     }

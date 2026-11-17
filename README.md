@@ -26,6 +26,22 @@ Läuft auf **Windows Server 2016/2019/2022/2025** sowie **Windows 10 und 11** (6
 
 **Ohne Installation:** ZIP von der [Release-Seite](https://github.com/fmatsch/ServerManagerPro/releases/latest) laden, entpacken, `ServerManagerPro.exe` starten. Die EXE bringt .NET mit; es muss nichts installiert werden. Für das volle Bild als **Administrator** starten (Button in der Kopfzeile).
 
+## Alarme und Fernzugriff ohne eigenen Server
+
+**Alarme** (*Alarme & Zugriff*): Die App meldet Warnungen und kritische Probleme nach außen – an **ntfy** (Handy), **Microsoft Teams** (Workflow-Webhook), **Slack**, **Telegram**, einen **eigenen Webhook** (JSON) oder als **Sprechblase am Tray-Symbol**. Es werden nur ausgehende Verbindungen aufgebaut, es gibt keinen offenen Port. Damit sie nützlich und nicht lästig sind:
+
+- ein Problem wird erst gemeldet, wenn es länger als die **Verzögerung** (Standard 3 Minuten) besteht – kurze Spitzen lösen nichts aus
+- **keine Doppelmeldungen**; eine **Erinnerung** nach einstellbarer Zeit (Standard 12 Stunden), solange das Problem besteht
+- wird es schlimmer (Warnung → kritisch), kommt sofort eine Meldung; wird es **behoben**, kommt eine Entwarnung mit der Dauer
+- viele Probleme gleichzeitig werden zu **einer** Nachricht zusammengefasst; pro Stunde gilt ein **Höchstwert** (danach eine Hinweis-Nachricht)
+- die Ziele enthalten Geheimnisse (Webhook-Adressen, Tokens) und werden mit Windows-DPAPI verschlüsselt gespeichert; „Testnachricht senden“ prüft jedes Ziel
+
+Die App muss laufen, damit gemeldet wird – am einfachsten im Hintergrund als Overlay mit Autostart (`--overlay`).
+
+**Status-Zugriff (nur lesen):** Optional macht die App die Zusammenfassung des Rechners über HTTPS abrufbar (`/api/status` als JSON, `/` als kleine Webseite). Nur `GET`, nur mit Token, ohne Einstellungen und Zugangsdaten, mit selbstsigniertem Zertifikat (Fingerabdruck wird angezeigt). Standardmäßig aus und nur auf `127.0.0.1`; für den Zugriff von außen die Adresse eines **VPN-Adapters** eintragen (Tailscale, WireGuard) und in der Windows-Firewall freigeben – die App ändert die Firewall nicht. **Nicht ins offene Internet stellen.**
+
+**Server-Liste:** Andere Installationen tragen diesen Server unter *Entfernte Server* ein (`Name|https://adresse:8765|Token|Fingerabdruck`). Auf der Seite *Server* sehen Sie dann alle Server auf einen Blick; die Alarme gelten auch für sie – inklusive Meldung, wenn ein Server nicht mehr antwortet. Das braucht weder einen eigenen Server noch Cloud-Speicher, nur Erreichbarkeit zwischen den Rechnern (VPN).
+
 ## Sprache, Updates, Bedienung
 
 - **Sprache:** Deutsch und Englisch (*Einstellungen → Sprache*, „Automatisch“ folgt der Windows-Sprache; Änderung nach Neustart). Die Oberfläche, Beschriftungen, Tabellenköpfe, die Prüfungsnamen und die häufigsten Meldungen sind übersetzt. **Seltenere Meldungen und Werte, die Windows selbst liefert, bleiben deutsch bzw. in der Sprache von Windows.**
@@ -73,6 +89,9 @@ Schwellenwerte, zusätzliche Dienste und Backup-Stichwörter stehen unter *Einst
 Die veröffentlichten EXE-Dateien sind **nicht signiert** (dafür braucht es ein Code-Signing-Zertifikat, das nicht kostenlos ist), Windows SmartScreen warnt deshalb. Die CI signiert automatisch, sobald im Repository die Secrets `SIGN_PFX_BASE64` (PFX-Datei, Base64) und `SIGN_PFX_PASSWORD` hinterlegt sind: EXE und Setup werden dann mit `signtool` samt Zeitstempel signiert. Bis dahin: Prüfsummen stehen in `SHA256SUMS.txt` beim Release.
 
 ## Grenzen
+
+- **Alarme:** Die Kanäle sind gegen einen lokalen Testserver geprüft (Format, Zeichensatz, Token, Ablauf mit Verzögerung/Erinnerung/Entwarnung/Limit). Gegen die echten Dienste (ntfy, Teams, Slack, Telegram) habe ich sie nicht ausprobiert; bei Teams gilt das Workflow-Webhook-Format. Die Sprechblase am Tray ist nicht automatisch getestet. Ohne laufende App gibt es keine Meldungen, und es gibt (noch) keinen Verlauf der Messwerte.
+- **Status-Zugriff:** getestet mit TLS, Token-Prüfung und Fingerabdruck auf dem eigenen Rechner (Loopback), nicht über ein echtes VPN. Das Token steht in der Adresse der Webseite (`?token=`) – nur im VPN verwenden.
 
 - **Nicht auf echten Systemen geprüft** (nur gegen die Windows-Schnittstellen entwickelt): Hyper-V, IIS, Druckserver, FSRM, Exchange, DFS, die PostgreSQL-/MySQL-Detailwerte, DHCP-Failover und -IPv6 sowie die Zertifikatsliste. Auf dem Testrechner waren diese Rollen bzw. Zertifikate nicht vorhanden. Über Fehlerberichte freue ich mich.
 - **PostgreSQL/MySQL-Details** brauchen eine Verbindung (*Einstellungen → Datenbank-Verbindungen*), am besten mit einem Benutzer, der nur lesen darf. Die Verbindungszeichenfolge wird mit Windows-DPAPI verschlüsselt (Computer-Schlüssel: schützt vor dem Lesen der Datei, nicht vor anderen Benutzern auf demselben Computer).

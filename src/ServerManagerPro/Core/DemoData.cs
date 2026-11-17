@@ -1,7 +1,7 @@
 namespace ServerManagerPro.Core;
 
 /// <summary>Beispieldaten für Screenshots (Start mit --demo). Werden nie bei normalem Betrieb verwendet.</summary>
-static class DemoData
+public static class DemoData
 {
     public static void Apply(Snapshot s)
     {
@@ -77,4 +77,27 @@ static class DemoData
     }
 
     static uint U(string ip) => DhcpCollector.U(ip);
+
+    public static List<RemoteState> Remotes()
+    {
+        StatusPayload P(string host, int score, string overall, params (string c, string n, string st, string d)[] checks) => new()
+        {
+            Host = host, Time = DateTime.Now.ToString("o"), Version = "0.6.0", Score = score, Overall = overall,
+            Checks = checks.Select(x => new StatusCheck(x.c, x.n, x.st, x.d)).ToList(),
+        };
+        return new()
+        {
+            new RemoteState { Name = "SRV-DC01", Ok = true, Fetched = DateTime.Now.AddSeconds(-12), Payload = P("SRV-DC01", 100, "Ok", ("Dienste", "Autostart-Dienste", "Ok", "88 von 140 Diensten laufen."), ("Active Directory", "Replikation", "Ok", "2 Verbindungen, alle erfolgreich.")) },
+            new RemoteState { Name = "SRV-FILE01", Ok = true, Fetched = DateTime.Now.AddSeconds(-9), Payload = P("SRV-FILE01", 76, "Critical", ("System", "Laufwerk D:", "Critical", "9,8 GB frei von 931 GB (1% frei)."), ("Sicherung", "Letzte erfolgreiche Sicherung", "Warning", "gestern 21:03 (vor 38 Std.); erlaubt sind 36 Stunden."), ("Dienste", "Autostart-Dienste", "Ok", "alle laufen."), ("Dateiserver", "Kontingente", "Warning", "Fast voll: D:/Projekte 91 %.")) },
+            new RemoteState { Name = "SRV-SQL01", Ok = false, Failures = 3, Error = "Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte." },
+        };
+    }
+
+    public static List<AlertLogRow> AlertLog() => new()
+    {
+        new AlertLogRow { Time = DateTime.Now.AddMinutes(-4), Source = "SRV-SQL01", Level = "Kritisch", Event = "Problem", Text = "[Kritisch] SRV-SQL01: Server nicht erreichbar", Result = "ntfy: ok; teams: ok" },
+        new AlertLogRow { Time = DateTime.Now.AddHours(-3), Source = "SRV-FILE01", Level = "Kritisch", Event = "Verschärft", Text = "[Kritisch] SRV-FILE01: Laufwerk D:", Result = "ntfy: ok; teams: ok" },
+        new AlertLogRow { Time = DateTime.Now.AddHours(-9), Source = "SRV-FILE01", Level = "Warnung", Event = "Problem", Text = "[Warnung] SRV-FILE01: Laufwerk D:", Result = "ntfy: ok; teams: ok" },
+        new AlertLogRow { Time = DateTime.Now.AddHours(-26), Source = "SRV-DC01", Level = "In Ordnung", Event = "Behoben", Text = "[Behoben] SRV-DC01: Replikation", Result = "ntfy: ok; teams: ok" },
+    };
 }
